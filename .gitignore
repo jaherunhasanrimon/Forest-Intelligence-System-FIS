@@ -1,0 +1,21 @@
+# Secrets and keys
+backend/secrets/
+*.json
+.env
+
+# Python caching
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# System files
+.DS_Store
+
+# Instructions and reference materials
+all instractions/
+all instructions/
+

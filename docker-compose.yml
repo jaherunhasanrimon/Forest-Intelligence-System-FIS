@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: fis_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: forest_intel
+      MYSQL_USER: fis_user
+      MYSQL_PASSWORD: fis_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: fis_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fis_api
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/workspace
+    environment:
+      - ENVIRONMENT=development
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_DB=forest_intel
+      - MYSQL_USER=fis_user
+      - MYSQL_PASSWORD=fis_password
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fis_worker
+    restart: always
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/workspace
+    environment:
+      - ENVIRONMENT=development
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_DB=forest_intel
+      - MYSQL_USER=fis_user
+      - MYSQL_PASSWORD=fis_password
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  db_data:
