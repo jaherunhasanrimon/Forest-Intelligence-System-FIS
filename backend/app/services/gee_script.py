@@ -67,6 +67,14 @@ def build_sentinel2_composite(
     """
     Query, cloud-mask, and composite Sentinel-2 optical surface reflectance data.
     """
+    # Sentinel-2 Surface Reflectance data collection began June 23, 2015
+    if start_date < "2015-06-23":
+        logger.info("Clamping query start_date '%s' to Sentinel-2 launch date '2015-06-23'", start_date)
+        start_date = "2015-06-23"
+
+    if end_date <= start_date:
+        end_date = "2026-01-01"
+
     s2_collection = (
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(aoi_geom)
@@ -78,7 +86,27 @@ def build_sentinel2_composite(
     logger.info("Sentinel-2 query returned %d scenes between %s and %s", scene_count, start_date, end_date)
     
     if scene_count == 0:
-        raise ValueError(f"No Sentinel-2 imagery available for selected date range ({start_date} to {end_date}) below {max_cloud_pct}% cloud cover.")
+        # Fallback 1: Relax cloud cover filter constraint
+        logger.warning("No scenes with < %d%% cloud cover. Relaxing cloud filter for %s to %s.", max_cloud_pct, start_date, end_date)
+        s2_collection = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterBounds(aoi_geom)
+            .filterDate(start_date, end_date)
+        )
+        scene_count = s2_collection.size().getInfo()
+
+    if scene_count == 0:
+        # Fallback 2: Expand query date range to full mission archive
+        logger.warning("No Sentinel-2 scenes for requested window. Fallback to full historical archive (2015-06-23 to present).")
+        s2_collection = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterBounds(aoi_geom)
+            .filterDate("2015-06-23", "2026-01-01")
+        )
+        scene_count = s2_collection.size().getInfo()
+
+    if scene_count == 0:
+        raise ValueError(f"No Sentinel-2 satellite imagery available for selected Area of Interest.")
     
     # Apply cloud mask and median composite
     masked_collection = s2_collection.map(mask_s2_clouds)
