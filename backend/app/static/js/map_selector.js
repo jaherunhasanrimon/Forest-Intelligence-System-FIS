@@ -252,3 +252,6 @@ async function submitAOI() {
         showError(`Network Connection Error: ${error.message}`);
     }
 }
+
+// Guarantee global availability for Google Maps callback
+window.initMap = initMap;
