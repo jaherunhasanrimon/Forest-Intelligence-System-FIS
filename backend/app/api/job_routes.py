@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.job import Job
+from app.models.analysis_result import AnalysisResult
 from app.schemas.job import JobResponse, JobStatusDetail
+from app.schemas.analysis import AnalysisResultResponse
 
 router = APIRouter(prefix="/jobs", tags=["Monitoring Jobs"])
 
@@ -16,7 +18,6 @@ def list_jobs(db: Session = Depends(get_db)):
     Retrieve the list of all monitoring jobs.
     In Phase 2, this fetches runs submitted by the guest user.
     """
-    # Sort by created_at descending (newest runs first)
     jobs = db.query(Job).order_by(Job.created_at.desc()).all()
     return jobs
 
@@ -34,7 +35,6 @@ def get_job_status(job_id: int, db: Session = Depends(get_db)):
             detail=f"Monitoring Job with ID {job_id} not found."
         )
 
-    # Compute elapsed seconds
     end_time = db_job.completed_at or datetime.utcnow()
     elapsed = (end_time - db_job.created_at).total_seconds()
 
@@ -47,6 +47,20 @@ def get_job_status(job_id: int, db: Session = Depends(get_db)):
         "completed_at": db_job.completed_at,
         "elapsed_seconds": round(elapsed, 1)
     }
+
+
+@router.get("/{job_id}/results", response_model=AnalysisResultResponse)
+def get_job_results(job_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieve computed AI analysis metrics (canopy %, tree count, biomass, carbon, health).
+    """
+    result = db.query(AnalysisResult).filter(AnalysisResult.job_id == job_id).first()
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis results for Job #{job_id} not available or processing incomplete."
+        )
+    return result
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

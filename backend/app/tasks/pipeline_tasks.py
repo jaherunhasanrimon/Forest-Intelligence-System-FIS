@@ -4,6 +4,7 @@ from app.tasks.celery_app import celery_app
 from app.db import SessionLocal
 from app.services.job_orchestrator import update_job_status
 from app.tasks.gee_export_tasks import run_gee_export_task
+from app.tasks.analysis_tasks import run_ai_analysis_task
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 def process_aoi_pipeline(job_id: int):
     """
     Stateful asynchronous pipeline coordinator.
-    Invokes the real GEE export task, then passes output down the pipeline stages.
+    Invokes the real GEE export task, ingests GeoTIFF raster data, and runs the AI inference pipeline.
     """
     logger.info("Initializing async pipeline runner for Job ID: %d", job_id)
     
@@ -23,14 +24,11 @@ def process_aoi_pipeline(job_id: int):
         
         # Step 2: Data Ingestion & Cataloging
         update_job_status(db, job_id, "DOWNLOADED")
-        time.sleep(2)
+        time.sleep(1)
         
-        # Step 3: AI Inference Pipeline
-        update_job_status(db, job_id, "ANALYZING")
-        time.sleep(3)
+        # Step 3: Run AI Inference Engine (Calculates cover, biomass, carbon, health, & saves DB result)
+        run_ai_analysis_task(job_id)
         
-        # Step 4: Terminal Completion
-        update_job_status(db, job_id, "COMPLETED")
         logger.info("Async pipeline execution for Job %d finished successfully.", job_id)
         
     except Exception as exc:
