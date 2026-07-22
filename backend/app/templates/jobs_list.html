@@ -71,8 +71,12 @@
                 </div>
 
                 <!-- Details/Errors feedback -->
-                <div class="job-status-feedback" id="feedback-{{ job.id }}" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
-                    Initializing pipeline job...
+                <div class="job-status-feedback" id="feedback-{{ job.id }}" style="font-size: 13px; color: {% if job.status == 'FAILED' %}var(--error){% else %}var(--text-secondary){% endif %}; line-height: 1.5;">
+                    {% if job.status == 'FAILED' %}
+                        ⚠️ Error: {{ job.error_message or 'Job failed during pipeline execution.' }}
+                    {% else %}
+                        Initializing pipeline job...
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -106,7 +110,7 @@
     // Initial load updates
     document.addEventListener("DOMContentLoaded", () => {
         {% for job in jobs %}
-            updateJobUI({{ job.id }}, "{{ job.status }}", "");
+            updateJobUI({{ job.id }}, "{{ job.status }}", {{ (job.error_message or '')|tojson }});
         {% endfor %}
         
         // Start polling interval
@@ -163,7 +167,7 @@
         const feedback = document.getElementById(`feedback-${jobId}`);
         if (feedback) {
             if (status === "FAILED") {
-                feedback.innerText = errorMessage ? `Error: ${errorMessage}` : "Job failed during pipeline execution.";
+                feedback.innerText = errorMessage ? `⚠️ Error: ${errorMessage}` : "⚠️ Error: Job failed during pipeline execution.";
                 feedback.style.color = "var(--error)";
             } else {
                 feedback.innerText = config.label;
