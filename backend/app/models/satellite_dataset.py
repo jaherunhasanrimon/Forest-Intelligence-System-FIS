@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, DateTime, Decimal, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, DECIMAL, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -13,9 +13,9 @@ class SatelliteDataset(Base):
     gcs_uri = Column(String(255), nullable=True)
     local_path = Column(String(255), nullable=True)
     band_count = Column(Integer, default=10, nullable=False)
-    resolution_m = Column(Decimal(5, 2), nullable=True)
+    resolution_m = Column(DECIMAL(5, 2), nullable=True)
     crs = Column(String(30), nullable=True)
-    file_size_mb = Column(Decimal(10, 2), nullable=True)
+    file_size_mb = Column(DECIMAL(10, 2), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     job = relationship("Job", back_populates="dataset")
