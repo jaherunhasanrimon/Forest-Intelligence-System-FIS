@@ -90,7 +90,23 @@ function initMap() {
         }
     });
 
-    // 5. Initialize submit listener
+    // 5. Wire Draw Polygon button
+    const drawBtn = document.getElementById("draw-poly-btn");
+    if (drawBtn) {
+        drawBtn.addEventListener("click", () => {
+            clearPreviousPolygon();
+            drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+        });
+    }
+
+    // 6. Map click fallback: Activate polygon drawing if map is clicked while idle
+    google.maps.event.addListener(map, "click", () => {
+        if (!currentPolygon && drawingManager.getDrawingMode() === null) {
+            drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+        }
+    });
+
+    // 7. Initialize submit listener
     document.getElementById("analyze-btn").addEventListener("click", submitAOI);
 }
 
@@ -104,6 +120,9 @@ function clearPreviousPolygon() {
     document.getElementById("readout-vertices").innerText = "0";
     document.getElementById("readout-area").innerText = "0.00 ha";
     hideError();
+    if (drawingManager) {
+        drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    }
 }
 
 function processPolygon(polygon) {

@@ -27,6 +27,16 @@
             </div>
         </div>
 
+        <!-- Drawing Action Controls -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button id="draw-poly-btn" type="button" class="btn" style="flex: 1; background-color: var(--accent-action); color: #FFFFFF; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span>✏️</span> Draw Polygon
+            </button>
+            <button id="clear-poly-btn" type="button" class="btn" style="background-color: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; padding: 8px 12px;" onclick="clearPreviousPolygon()">
+                <span>🗑️</span> Clear
+            </button>
+        </div>
+
         <div class="readout-panel">
             <div class="readout-row">
                 <span class="readout-label">Vertices</span>
