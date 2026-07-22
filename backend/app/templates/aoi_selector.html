@@ -51,10 +51,15 @@
     </aside>
 
     <!-- Right panel: Interactive Google Map Selector -->
-    <div class="map-panel">
+    <div class="map-panel" style="position: relative;">
         <!-- Search bar layout overlay -->
         <div class="map-search-container">
             <input type="text" id="map-search" class="map-search-input" placeholder="Search location or coordinates...">
+        </div>
+
+        <!-- Drawing Instruction Tooltip Overlay -->
+        <div style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 5; background: rgba(18, 26, 20, 0.90); backdrop-filter: blur(8px); border: 1px solid rgba(127, 174, 92, 0.4); border-radius: 20px; padding: 8px 18px; color: #E8F0E6; font-size: 13px; font-weight: 500; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px;">📐</span> <span>Click anywhere on the map to start drawing. Click each vertex corner and <b>double-click</b> to complete parcel shape.</span>
         </div>
 
         <!-- Map element -->
