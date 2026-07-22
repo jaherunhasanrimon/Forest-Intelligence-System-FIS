@@ -18,4 +18,6 @@ env/
 # Instructions and reference materials
 all instractions/
 all instructions/
-
+# Generated storage files
+backend/storage/*
+!backend/storage/*/.gitkeep

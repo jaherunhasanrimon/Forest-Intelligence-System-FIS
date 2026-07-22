@@ -23,8 +23,8 @@ def test_submit_aoi_triggers_job_and_poll():
     # 1. Submit AOI
     payload = {
         "name": "Orchestration Test Parcel",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30)),
+        "start_date": "2024-01-01",
+        "end_date": "2024-03-01",
         "geometry": {
             "type": "Polygon",
             "coordinates": [
