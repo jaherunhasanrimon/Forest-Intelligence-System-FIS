@@ -55,8 +55,12 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    DATABASE_URL_OVERRIDE: str = "sqlite:///./dev.db"
+
     @property
     def DATABASE_URL(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
         return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
 
     @property

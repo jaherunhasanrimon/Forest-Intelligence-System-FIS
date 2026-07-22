@@ -20,4 +20,6 @@ all instractions/
 all instructions/
 # Generated storage files
 backend/storage/*
-!backend/storage/*/.gitkeep
+# SQLite dev database
+*.db
+backend/dev.db

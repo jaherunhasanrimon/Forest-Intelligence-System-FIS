@@ -80,7 +80,7 @@
 {% block extra_js %}
 {% if maps_api_key %}
 <!-- Load Google Maps JavaScript API with Drawing, Places, and Geometry Libraries -->
-<script src="https://maps.googleapis.com/maps/api/js?key={{ maps_api_key }}&libraries=drawing,places,geometry&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ maps_api_key }}&libraries=drawing,places,geometry&v=3.55&callback=initMap" async defer></script>
 <script src="/static/js/map_selector.js"></script>
 {% endif %}
 {% endblock %}

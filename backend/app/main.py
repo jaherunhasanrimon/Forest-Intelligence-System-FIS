@@ -7,10 +7,18 @@ from fastapi.templating import Jinja2Templates
 
 from sqlalchemy.orm import Session
 from app.config import settings
-from app.db import get_db
+from app.db import Base, engine, get_db
+from app.models.user import User
+from app.models.aoi import AOI
 from app.models.job import Job
+from app.models.satellite_dataset import SatelliteDataset
+from app.models.analysis_result import AnalysisResult
+from app.models.report import Report
 from app.api.aoi_routes import router as aoi_router
 from app.api.job_routes import router as job_router
+
+# Auto-create tables if they do not exist
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Forest Intelligence System API",
@@ -65,9 +73,9 @@ def get_map_selector(request: Request):
     Serves the interactive Google Map AOI selector page.
     """
     return templates.TemplateResponse(
-        "aoi_selector.html",
-        {
-            "request": request,
+        request=request,
+        name="aoi_selector.html",
+        context={
             "active_page": "aoi",
             "maps_api_key": settings.GOOGLE_MAPS_API_KEY
         }
@@ -81,9 +89,9 @@ def get_jobs_list(request: Request, db: Session = Depends(get_db)):
     """
     jobs = db.query(Job).order_by(Job.created_at.desc()).all()
     return templates.TemplateResponse(
-        "jobs_list.html",
-        {
-            "request": request,
+        request=request,
+        name="jobs_list.html",
+        context={
             "active_page": "jobs",
             "jobs": jobs
         }
