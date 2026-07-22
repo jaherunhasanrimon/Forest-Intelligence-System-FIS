@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.config import settings
+from app.api.aoi_routes import router as aoi_router
 
 app = FastAPI(
     title="Forest Intelligence System API",
@@ -18,6 +23,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Resolve directories relative to main.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Mount Static assets
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Templates Configuration
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# Include Router Modules
+app.include_router(aoi_router, prefix="/api")
+
 
 @app.get("/health")
 def health_check():
@@ -31,6 +50,38 @@ def health_check():
     }
 
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Forest Intelligence System API"}
+# ---------------------------------------------------------------------------
+# HTML Page Routes
+# ---------------------------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+def get_map_selector(request: Request):
+    """
+    Serves the interactive Google Map AOI selector page.
+    """
+    return templates.TemplateResponse(
+        "aoi_selector.html",
+        {
+            "request": request,
+            "active_page": "aoi",
+            "maps_api_key": settings.GOOGLE_MAPS_API_KEY
+        }
+    )
+
+
+@app.get("/jobs", response_class=HTMLResponse)
+def get_jobs_stub(request: Request):
+    """
+    Temporary placeholder endpoint for Jobs queue list (Phase 2).
+    """
+    return HTMLResponse(
+        content="""
+        <html>
+            <body style="background:#121712; color:#E8E6DE; font-family:sans-serif; padding:50px;">
+                <h1>📋 Monitoring Jobs list stub</h1>
+                <p>This page will show your active job queue status in Phase 2.</p>
+                <a href="/" style="color:#4C9A6A;">← Back to Map Selector</a>
+            </body>
+        </html>
+        """
+    )

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}AOI Selection — Forest Intelligence{% endblock %}
+
+{% block header_title %}Area of Interest Selection{% endblock %}
+
+{% block content %}
+<div class="split-pane">
+    <!-- Left panel: Selection Controls & Details -->
+    <aside class="control-panel">
+        <div class="form-group">
+            <label class="form-label" for="parcel-name">Parcel Name</label>
+            <input type="text" id="parcel-name" class="form-input" placeholder="e.g. Amazon Sector G4" value="Amazon Sector G4">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Date Range</label>
+            <div style="display: flex; gap: 12px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label class="form-label" style="font-size: 9px;" for="start-date">Start Date</label>
+                    <input type="date" id="start-date" class="form-input" value="2025-01-01">
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                    <label class="form-label" style="font-size: 9px;" for="end-date">End Date</label>
+                    <input type="date" id="end-date" class="form-input" value="2025-06-01">
+                </div>
+            </div>
+        </div>
+
+        <div class="readout-panel">
+            <div class="readout-row">
+                <span class="readout-label">Vertices</span>
+                <span class="readout-val" id="readout-vertices">0</span>
+            </div>
+            <div class="readout-row">
+                <span class="readout-label">Estimated Area</span>
+                <span class="readout-val highlight" id="readout-area">0.00 ha</span>
+            </div>
+            <div class="readout-row">
+                <span class="readout-label">Coordinates Precision</span>
+                <span class="readout-val" id="readout-precision">6 decimals (snapped)</span>
+            </div>
+        </div>
+
+        <!-- Validation Alerts -->
+        <div class="validation-alert" id="validation-error"></div>
+
+        <button id="analyze-btn" class="btn btn-primary" disabled>
+            <span>🚀</span> Start Automated Analysis
+        </button>
+    </aside>
+
+    <!-- Right panel: Interactive Google Map Selector -->
+    <div class="map-panel">
+        <!-- Search bar layout overlay -->
+        <div class="map-search-container">
+            <input type="text" id="map-search" class="map-search-input" placeholder="Search location or coordinates...">
+        </div>
+
+        <!-- Map element -->
+        <div id="map"></div>
+
+        <!-- Warning overlay if Maps API key is missing -->
+        {% if not maps_api_key %}
+        <div class="gee-warning-overlay">
+            <div class="gee-warning-content">
+                <span class="gee-warning-icon">⚠️</span>
+                <h3 class="gee-warning-title">Google Maps API Key Missing</h3>
+                <p class="gee-warning-text">
+                    The interactive parcel drawer requires a valid Google Maps API Key.<br>
+                    Please configure <code>GOOGLE_MAPS_API_KEY</code> in your <code>backend/.env</code> file and refresh the page.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if maps_api_key %}
+<!-- Load Google Maps JavaScript API with Drawing, Places, and Geometry Libraries -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ maps_api_key }}&libraries=drawing,places,geometry&callback=initMap" async defer></script>
+<script src="/static/js/map_selector.js"></script>
+{% endif %}
+{% endblock %}

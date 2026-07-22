@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Forest Intelligence System{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- CSS Style Sheets -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-logo">🌲</span>
+                <span class="brand-name">Forest Intel</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item {% if active_page == 'aoi' %}active{% endif %}">
+                    <span class="nav-icon">🗺️</span>
+                    <span class="nav-label">AOI Selector</span>
+                </a>
+                <a href="/jobs" class="nav-item {% if active_page == 'jobs' %}active{% endif %}">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Monitoring Jobs</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <span class="user-avatar">👤</span>
+                    <span class="user-name">Guest User</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Work Area -->
+        <main class="app-main">
+            <header class="main-header">
+                <h1 class="header-title">{% block header_title %}Dashboard{% endblock %}</h1>
+                <div class="header-actions">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </header>
+            <section class="main-content">
+                {% block content %}{% endblock %}
+            </section>
+        </main>
+    </div>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
