@@ -10,6 +10,7 @@ from app.models.aoi import AOI
 from app.models.job import Job
 from app.models.user import User
 from app.schemas.aoi import AOICreate, JobSubmissionResponse
+from app.tasks.pipeline_tasks import process_aoi_pipeline
 
 router = APIRouter(prefix="/aoi", tags=["AOI Selection"])
 
@@ -136,7 +137,7 @@ def submit_aoi(payload: AOICreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_aoi)
 
-    # 7. Create tracking Job row (Async pipeline stub)
+    # 7. Create tracking Job row
     db_job = Job(
         aoi_id=db_aoi.id,
         user_id=guest_user.id,
@@ -147,6 +148,9 @@ def submit_aoi(payload: AOICreate, db: Session = Depends(get_db)):
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
+
+    # 8. Trigger Celery task asynchronously
+    process_aoi_pipeline.delay(db_job.id)
 
     # Return Job tracker details
     return {

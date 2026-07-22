@@ -1,12 +1,16 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from sqlalchemy.orm import Session
 from app.config import settings
+from app.db import get_db
+from app.models.job import Job
 from app.api.aoi_routes import router as aoi_router
+from app.api.job_routes import router as job_router
 
 app = FastAPI(
     title="Forest Intelligence System API",
@@ -36,6 +40,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Include Router Modules
 app.include_router(aoi_router, prefix="/api")
+app.include_router(job_router, prefix="/api")
 
 
 @app.get("/health")
@@ -70,18 +75,16 @@ def get_map_selector(request: Request):
 
 
 @app.get("/jobs", response_class=HTMLResponse)
-def get_jobs_stub(request: Request):
+def get_jobs_list(request: Request, db: Session = Depends(get_db)):
     """
-    Temporary placeholder endpoint for Jobs queue list (Phase 2).
+    Serves the dashboard table showing all async pipeline runs.
     """
-    return HTMLResponse(
-        content="""
-        <html>
-            <body style="background:#121712; color:#E8E6DE; font-family:sans-serif; padding:50px;">
-                <h1>📋 Monitoring Jobs list stub</h1>
-                <p>This page will show your active job queue status in Phase 2.</p>
-                <a href="/" style="color:#4C9A6A;">← Back to Map Selector</a>
-            </body>
-        </html>
-        """
+    jobs = db.query(Job).order_by(Job.created_at.desc()).all()
+    return templates.TemplateResponse(
+        "jobs_list.html",
+        {
+            "request": request,
+            "active_page": "jobs",
+            "jobs": jobs
+        }
     )

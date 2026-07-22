@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring Jobs — Forest Intelligence{% endblock %}
+
+{% block header_title %}Satellite Monitoring Jobs{% endblock %}
+
+{% block content %}
+<div style="padding: 32px; width: 100%; height: 100%; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <p style="color: var(--text-secondary); font-size: 15px;">
+            Track and monitor the state of Google Earth Engine integrations and AI pipeline jobs.
+        </p>
+        <a href="/" class="btn btn-primary" style="width: auto; padding: 8px 16px;">
+            <span>➕</span> New Analysis
+        </a>
+    </div>
+
+    <!-- Active Job Queue List -->
+    <div class="jobs-container" style="display: flex; flex-direction: column; gap: 20px;">
+        {% if not jobs %}
+        <div style="background-color: var(--surface); border: 1px solid var(--border); padding: 48px; border-radius: 8px; text-align: center;">
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">No satellite analysis jobs have been submitted yet.</p>
+            <a href="/" style="color: var(--accent-action); text-decoration: none;">Draw an Area of Interest on the Map to get started →</a>
+        </div>
+        {% else %}
+            {% for job in jobs %}
+            <div class="job-card" id="job-card-{{ job.id }}" style="background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.2s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;">
+                    <div>
+                        <!-- Header info -->
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <h3 style="font-family: var(--font-display); font-size: 18px; font-weight: 500;">
+                                Job ID: <span style="font-family: var(--font-data); font-size: 16px;">#{{ job.id }}</span>
+                            </h3>
+                            <span class="status-badge" id="status-badge-{{ job.id }}" style="padding: 4px 10px; border-radius: 20px; font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; font-family: var(--font-body);">
+                                {{ job.status }}
+                            </span>
+                        </div>
+                        
+                        <!-- Details -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 24px; color: var(--text-secondary); font-size: 13px;">
+                            <div>
+                                <span style="text-transform: uppercase; font-size: 10px; font-weight: 500; display: block; margin-bottom: 2px;">Monitoring Range</span>
+                                <span style="font-family: var(--font-data);">{{ job.start_date }}</span> to <span style="font-family: var(--font-data);">{{ job.end_date }}</span>
+                            </div>
+                            <div>
+                                <span style="text-transform: uppercase; font-size: 10px; font-weight: 500; display: block; margin-bottom: 2px;">Created At</span>
+                                <span style="font-family: var(--font-data);">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+                            </div>
+                            <div>
+                                <span style="text-transform: uppercase; font-size: 10px; font-weight: 500; display: block; margin-bottom: 2px;">Elapsed Time</span>
+                                <span style="font-family: var(--font-data);" id="elapsed-time-{{ job.id }}">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-danger" onclick="deleteJob({{ job.id }})" style="background-color: transparent; border: 1px solid var(--border); color: var(--error); width: auto; padding: 6px 12px; font-size: 13px;">
+                            Cancel / Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- NDVI Progress Bar -->
+                <div style="background-color: var(--canvas); border-radius: 8px; height: 16px; width: 100%; overflow: hidden; border: 1px solid var(--border); position: relative;">
+                    <div class="progress-bar" id="progress-bar-{{ job.id }}" style="height: 100%; transition: width 0.5s ease, background-color 0.5s ease; width: 0%;"></div>
+                </div>
+
+                <!-- Details/Errors feedback -->
+                <div class="job-status-feedback" id="feedback-{{ job.id }}" style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                    Initializing pipeline job...
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Configuration states representing the GEE/AI pipeline (Visual design integration from design.md)
+    const STATUS_CONFIGS = {
+        "PENDING": { width: "10%", color: "var(--ndvi-bare)", label: "Queued in Redis broker" },
+        "EXPORTING": { width: "35%", color: "var(--ndvi-sparse)", label: "Connecting GEE Service Account and submitting export task..." },
+        "EXPORTED": { width: "50%", color: "var(--ndvi-moderate)", label: "GEE Export complete. Satellite GeoTIFF saved to local storage." },
+        "DOWNLOADED": { width: "65%", color: "var(--ndvi-dense)", label: "GeoTIFF ingested and registered. Ingesting metadata parameters..." },
+        "ANALYZING": { width: "85%", color: "var(--ndvi-dense)", label: "AI Models running: Computing biomass, tree metrics, and health indices..." },
+        "COMPLETED": { width: "100%", color: "var(--ndvi-peak)", label: "Pipeline complete! Analysis report is ready for viewing." },
+        "FAILED": { width: "100%", color: "var(--error)", label: "Job execution failed. Check errors." }
+    };
+
+    // Tracks jobs requiring active polling
+    const activeJobs = new Set();
+    
+    {% for job in jobs %}
+        {% if job.status not in ['COMPLETED', 'FAILED'] %}
+            activeJobs.add({{ job.id }});
+        {% endif %}
+    {% endfor %}
+
+    // Initial load updates
+    document.addEventListener("DOMContentLoaded", () => {
+        {% for job in jobs %}
+            updateJobUI({{ job.id }}, "{{ job.status }}", "");
+        {% endfor %}
+        
+        // Start polling interval
+        if (activeJobs.size > 0) {
+            const intervalId = setInterval(async () => {
+                if (activeJobs.size === 0) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                
+                for (const jobId of activeJobs) {
+                    await pollJobStatus(jobId);
+                }
+            }, 3000);
+        }
+    });
+
+    async function pollJobStatus(jobId) {
+        try {
+            const response = await fetch(`/api/jobs/${jobId}/status`);
+            if (!response.ok) return;
+            const data = await response.json();
+            
+            updateJobUI(jobId, data.status, data.error_message, data.elapsed_seconds);
+            
+            // If terminal state reached, remove from active polling list
+            if (["COMPLETED", "FAILED"].includes(data.status)) {
+                activeJobs.delete(jobId);
+            }
+        } catch (error) {
+            console.error(`Error polling Job #${jobId}:`, error);
+        }
+    }
+
+    function updateJobUI(jobId, status, errorMessage, elapsedSeconds) {
+        const config = STATUS_CONFIGS[status] || STATUS_CONFIGS["PENDING"];
+        
+        // Update badge
+        const badge = document.getElementById(`status-badge-${jobId}`);
+        if (badge) {
+            badge.innerText = status;
+            badge.style.backgroundColor = config.color;
+            badge.style.color = "var(--canvas)";
+        }
+        
+        // Update progress bar
+        const progressBar = document.getElementById(`progress-bar-${jobId}`);
+        if (progressBar) {
+            progressBar.style.width = config.width;
+            progressBar.style.backgroundColor = config.color;
+        }
+        
+        // Update status text
+        const feedback = document.getElementById(`feedback-${jobId}`);
+        if (feedback) {
+            if (status === "FAILED") {
+                feedback.innerText = errorMessage ? `Error: ${errorMessage}` : "Job failed during pipeline execution.";
+                feedback.style.color = "var(--error)";
+            } else {
+                feedback.innerText = config.label;
+                feedback.style.color = "var(--text-secondary)";
+            }
+        }
+
+        // Update elapsed time
+        const timeVal = document.getElementById(`elapsed-time-${jobId}`);
+        if (timeVal && elapsedSeconds !== undefined) {
+            timeVal.innerText = `${elapsedSeconds}s`;
+        }
+    }
+
+    async function deleteJob(jobId) {
+        if (!confirm(`Are you sure you want to cancel and delete Job #${jobId}?`)) return;
+        
+        try {
+            const response = await fetch(`/api/jobs/${jobId}`, {
+                method: "DELETE"
+            });
+            if (response.ok) {
+                // Remove job card from DOM
+                document.getElementById(`job-card-${jobId}`).remove();
+                activeJobs.delete(jobId);
+            } else {
+                alert("Failed to delete job.");
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+</script>
+{% endblock %}
