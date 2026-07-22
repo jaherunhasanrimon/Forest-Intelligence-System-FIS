@@ -55,7 +55,10 @@
                     </div>
                     
                     <!-- Actions -->
-                    <div style="display: flex; gap: 12px;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <a id="report-btn-{{ job.id }}" href="/api/jobs/{{ job.id }}/report/download" target="_blank" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 13px; text-decoration: none; display: {% if job.status == 'COMPLETED' %}inline-flex{% else %}none{% endif %};">
+                            📄 Download PDF Report
+                        </a>
                         <button class="btn btn-danger" onclick="deleteJob({{ job.id }})" style="background-color: transparent; border: 1px solid var(--border); color: var(--error); width: auto; padding: 6px 12px; font-size: 13px;">
                             Cancel / Delete
                         </button>
@@ -172,6 +175,12 @@
         const timeVal = document.getElementById(`elapsed-time-${jobId}`);
         if (timeVal && elapsedSeconds !== undefined) {
             timeVal.innerText = `${elapsedSeconds}s`;
+        }
+
+        // Toggle Download Report Button visibility
+        const reportBtn = document.getElementById(`report-btn-${jobId}`);
+        if (reportBtn) {
+            reportBtn.style.display = (status === "COMPLETED") ? "inline-flex" : "none";
         }
     }
 

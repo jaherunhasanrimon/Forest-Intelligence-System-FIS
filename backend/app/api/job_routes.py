@@ -1,11 +1,14 @@
+import os
 from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.job import Job
 from app.models.analysis_result import AnalysisResult
+from app.models.report import Report
 from app.schemas.job import JobResponse, JobStatusDetail
 from app.schemas.analysis import AnalysisResultResponse
 
@@ -61,6 +64,45 @@ def get_job_results(job_id: int, db: Session = Depends(get_db)):
             detail=f"Analysis results for Job #{job_id} not available or processing incomplete."
         )
     return result
+
+
+@router.get("/{job_id}/report/download")
+def download_job_report(job_id: int, format: str = "pdf", db: Session = Depends(get_db)):
+    """
+    Download the generated executive report file (format='pdf' or format='html').
+    """
+    db_report = db.query(Report).filter(Report.job_id == job_id).first()
+    if not db_report:
+        # Check if local fallback file exists
+        pdf_fallback = os.path.join("storage", "reports", f"job_{job_id}_report.pdf")
+        html_fallback = os.path.join("storage", "reports", f"job_{job_id}_report.html")
+        
+        target_file = pdf_fallback if format == "pdf" else html_fallback
+        if not os.path.exists(target_file):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Report file for Job #{job_id} not found or generation in progress."
+            )
+    else:
+        if format == "html":
+            target_file = os.path.join("storage", "reports", f"job_{job_id}_report.html")
+        else:
+            target_file = db_report.file_path or os.path.join("storage", "reports", f"job_{job_id}_report.pdf")
+
+    if not os.path.exists(target_file):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Requested report file '{target_file}' does not exist."
+        )
+
+    media_type = "application/pdf" if format == "pdf" else "text/html"
+    filename = f"Forest_Intelligence_Report_Job_{job_id}.{format}"
+
+    return FileResponse(
+        path=target_file,
+        media_type=media_type,
+        filename=filename
+    )
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)

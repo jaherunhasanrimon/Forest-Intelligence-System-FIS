@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Intelligence Executive Report — Job #{{ job.id }}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --canvas: #F7F5EF;
+            --surface: #FFFFFF;
+            --border: #D8D4C7;
+            --text-primary: #1B241D;
+            --text-secondary: #5B665D;
+            --accent: #1F5C3B;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'IBM Plex Sans', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+        }
+
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--canvas);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            line-height: 1.6;
+            padding: 40px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .report-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header Section */
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--text-primary);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        .brand-title {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .report-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 4px;
+        }
+
+        .job-tag {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            background-color: var(--canvas);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 4px;
+        }
+
+        /* Executive Summary Section */
+        .summary-box {
+            background-color: var(--canvas);
+            border-left: 4px solid var(--accent);
+            padding: 20px 24px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 36px;
+        }
+
+        .summary-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .summary-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Key Metrics Grid */
+        .section-heading {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 36px;
+        }
+
+        .metric-card {
+            background-color: var(--canvas);
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            border-radius: 6px;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-unit {
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        /* Health Category Badges */
+        .badge-healthy {
+            color: #1F5C3B;
+            background-color: #E8F5E9;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .badge-stressed {
+            color: #C9713C;
+            background-color: #FFF3E0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .badge-degraded {
+            color: #B23A32;
+            background-color: #FFEBEE;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* Metadata Details Table */
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 36px;
+        }
+
+        .details-table th, .details-table td {
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .details-table th {
+            background-color: var(--canvas);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .details-table td.mono {
+            font-family: var(--font-mono);
+        }
+
+        /* Footer */
+        .report-footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        @media print {
+            body {
+                background-color: #FFFFFF;
+                padding: 0;
+            }
+            .report-card {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-card">
+        <!-- Header -->
+        <header class="report-header">
+            <div>
+                <h1 class="brand-title">🌲 Forest Intelligence System</h1>
+                <p class="report-subtitle">Automated Satellite & AI Forest Intelligence Report</p>
+            </div>
+            <div class="job-tag">
+                JOB ID: #{{ job.id }}
+            </div>
+        </header>
+
+        <!-- Executive Summary -->
+        <section class="summary-box">
+            <h2 class="summary-title">Executive Diagnostic Summary</h2>
+            <p class="summary-text">{{ report.summary_text }}</p>
+        </section>
+
+        <!-- Key Metrics Grid -->
+        <h2 class="section-heading">Primary Environmental Metrics</h2>
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Canopy Cover</div>
+                <div class="metric-value">{{ analysis.forest_cover_pct }}<span class="metric-unit">%</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Estimated Trees</div>
+                <div class="metric-value">{{ "{:,}".format(analysis.tree_count) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Forest Health</div>
+                <div class="metric-value">
+                    {% if analysis.health_category == 'Healthy' %}
+                        <span class="badge-healthy">Healthy</span>
+                    {% elif analysis.health_category == 'Stressed' %}
+                        <span class="badge-stressed">Stressed</span>
+                    {% else %}
+                        <span class="badge-degraded">Degraded</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Dry Biomass</div>
+                <div class="metric-value">{{ "{:,.1f}".format(analysis.biomass_tons) }} <span class="metric-unit">tonnes</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Carbon Stock</div>
+                <div class="metric-value">{{ "{:,.1f}".format(analysis.carbon_tons) }} <span class="metric-unit">t C</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">CO₂ Equivalent Offset</div>
+                <div class="metric-value" style="color: var(--accent);">{{ "{:,.1f}".format(analysis.co2_equivalent_tons) }} <span class="metric-unit">t CO₂e</span></div>
+            </div>
+        </section>
+
+        <!-- Comprehensive Details Table -->
+        <h2 class="section-heading">AOI & Processing Metadata</h2>
+        <table class="details-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value / Spec</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Area of Interest (AOI) Name</td>
+                    <td><strong>{{ aoi.name }}</strong></td>
+                </tr>
+                <tr>
+                    <td>Parcel Surface Area</td>
+                    <td class="mono">{{ "{:,.2f}".format(aoi.area_hectares) }} hectares</td>
+                </tr>
+                <tr>
+                    <td>Satellite Observation Window</td>
+                    <td class="mono">{{ job.start_date }} to {{ job.end_date }}</td>
+                </tr>
+                <tr>
+                    <td>Reforestation Suitability Score</td>
+                    <td class="mono"><strong>{{ analysis.suitability_score }} / 100</strong></td>
+                </tr>
+                <tr>
+                    <td>Satellite Data Collection</td>
+                    <td>Sentinel-1 SAR C-Band + Sentinel-2 Optical (10-Band Composite)</td>
+                </tr>
+                <tr>
+                    <td>Spatial Resolution</td>
+                    <td class="mono">10.0 meters / pixel</td>
+                </tr>
+                <tr>
+                    <td>Report Generation Timestamp</td>
+                    <td class="mono">{{ report.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Footer -->
+        <footer class="report-footer">
+            <span>Generated by Forest Intelligence System (FIS) v1.0.0</span>
+            <span>IPCC Tier 1 Biomass & Carbon Standard</span>
+        </footer>
+    </div>
+</body>
+</html>
