@@ -16,10 +16,10 @@ const MAX_VERTICES = 100;
 const PRECISION_DECIMALS = 6;
 
 function initMap() {
-    // 1. Initialize Map centered on the Amazon Rainforest
+    // 1. Initialize Map centered on Dhaka, Bangladesh
     map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: -3.4653, lng: -62.2159 },
-        zoom: 7,
+        center: { lat: 23.8103, lng: 90.4125 },
+        zoom: 11,
         mapTypeId: "hybrid", // Satellite/terrain hybrid is standard in GIS
         tilt: 0,
         streetViewControl: false,
@@ -269,7 +269,7 @@ function hideError() {
 async function submitAOI() {
     if (!drawnGeoJSON) return;
 
-    const name = document.getElementById("parcel-name").value.trim() || "Amazon Sector G4";
+    const name = document.getElementById("parcel-name").value.trim() || "Dhaka Forest Sector 1";
     const startDate = document.getElementById("start-date").value;
     const endDate = document.getElementById("end-date").value;
 
