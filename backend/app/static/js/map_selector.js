@@ -1,7 +1,9 @@
 let map;
-let drawingManager;
+let vertexMarkers = [];
+let previewPolyline = null;
 let currentPolygon = null;
 let drawnGeoJSON = null;
+let vertexPoints = []; // Array of google.maps.LatLng
 
 // Design system constants for drawing elements
 const STROKE_COLOR = "#7FAE5C"; // --ndvi-moderate
@@ -21,6 +23,7 @@ function initMap() {
         mapTypeId: "hybrid", // Satellite/terrain hybrid is standard in GIS
         tilt: 0,
         streetViewControl: false,
+        disableDoubleClickZoom: true, // Disable map zoom on dblclick to allow closing polygons
         mapTypeControlOptions: {
             position: google.maps.ControlPosition.TOP_RIGHT
         }
@@ -28,139 +31,183 @@ function initMap() {
 
     // 2. Initialize Autocomplete Search
     const searchInput = document.getElementById("map-search");
-    const autocomplete = new google.maps.places.Autocomplete(searchInput);
-    autocomplete.bindTo("bounds", map);
+    if (searchInput) {
+        const autocomplete = new google.maps.places.Autocomplete(searchInput);
+        autocomplete.bindTo("bounds", map);
 
-    autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry || !place.geometry.location) {
-            alert("No details available for input: '" + place.name + "'");
-            return;
-        }
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry || !place.geometry.location) {
+                alert("No details available for input: '" + place.name + "'");
+                return;
+            }
 
-        if (place.geometry.viewport) {
-            map.fitBounds(place.geometry.viewport);
-        } else {
-            map.setCenter(place.geometry.location);
-            map.setZoom(14);
-        }
-    });
-
-    // 3. Initialize Drawing Manager
-    drawingManager = new google.maps.drawing.DrawingManager({
-        drawingMode: google.maps.drawing.OverlayType.POLYGON,
-        drawingControl: true,
-        drawingControlOptions: {
-            position: google.maps.ControlPosition.LEFT_TOP,
-            drawingModes: [google.maps.drawing.OverlayType.POLYGON]
-        },
-        polygonOptions: {
-            fillColor: FILL_COLOR,
-            fillOpacity: 0.3,
-            strokeWeight: 2,
-            strokeColor: STROKE_COLOR,
-            clickable: true,
-            editable: true,
-            draggable: true,
-            zIndex: 1
-        }
-    });
-    drawingManager.setMap(map);
-
-    // 4. Register event listeners for drawn shapes
-    google.maps.event.addListener(drawingManager, "overlaycomplete", (event) => {
-        if (event.type === google.maps.drawing.OverlayType.POLYGON) {
-            // Remove previous polygon if drawn
-            clearPreviousPolygon();
-
-            currentPolygon = event.overlay;
-            
-            // Switch out of drawing mode after polygon is completed
-            drawingManager.setDrawingMode(null);
-
-            // Validate and process the polygon
-            processPolygon(currentPolygon);
-
-            // Listen to geometry changes (dragging/editing vertices)
-            const path = currentPolygon.getPath();
-            google.maps.event.addListener(path, "set_at", () => processPolygon(currentPolygon));
-            google.maps.event.addListener(path, "insert_at", () => processPolygon(currentPolygon));
-            google.maps.event.addListener(path, "remove_at", () => processPolygon(currentPolygon));
-            google.maps.event.addListener(currentPolygon, "dragend", () => processPolygon(currentPolygon));
-        }
-    });
-
-    // 5. Wire Draw Polygon button
-    const drawBtn = document.getElementById("draw-poly-btn");
-    if (drawBtn) {
-        drawBtn.addEventListener("click", () => {
-            clearPreviousPolygon();
-            drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+            if (place.geometry.viewport) {
+                map.fitBounds(place.geometry.viewport);
+            } else {
+                map.setCenter(place.geometry.location);
+                map.setZoom(14);
+            }
         });
     }
 
-    // 6. Map click fallback: Activate polygon drawing if map is clicked while idle
-    google.maps.event.addListener(map, "click", () => {
-        if (!currentPolygon && drawingManager.getDrawingMode() === null) {
-            drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    // 3. Register Native Map Click Listener for Polygon Drawing
+    google.maps.event.addListener(map, "click", (event) => {
+        if (event.latLng) {
+            addVertexPoint(event.latLng);
         }
     });
 
-    // 7. Initialize submit listener
+    // 4. Register Double-Click Listener to Complete Polygon
+    google.maps.event.addListener(map, "dblclick", (event) => {
+        if (vertexPoints.length >= MIN_VERTICES) {
+            completePolygon();
+        }
+    });
+
+    // 5. Wire Action Buttons
+    const drawBtn = document.getElementById("draw-poly-btn");
+    if (drawBtn) {
+        drawBtn.addEventListener("click", clearPreviousPolygon);
+    }
+
+    const clearBtn = document.getElementById("clear-poly-btn");
+    if (clearBtn) {
+        clearBtn.addEventListener("click", clearPreviousPolygon);
+    }
+
+    // 6. Initialize submit listener
     document.getElementById("analyze-btn").addEventListener("click", submitAOI);
 }
 
-function clearPreviousPolygon() {
+function addVertexPoint(latLng) {
     if (currentPolygon) {
-        currentPolygon.setMap(null);
-        currentPolygon = null;
+        // Clear previous completed shape when starting a new polygon
+        clearPreviousPolygon();
     }
-    drawnGeoJSON = null;
-    document.getElementById("analyze-btn").disabled = true;
-    document.getElementById("readout-vertices").innerText = "0";
-    document.getElementById("readout-area").innerText = "0.00 ha";
-    hideError();
-    if (drawingManager) {
-        drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+
+    vertexPoints.push(latLng);
+
+    // Create a small green circle marker at each clicked vertex
+    const marker = new google.maps.Marker({
+        position: latLng,
+        map: map,
+        icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 6,
+            fillColor: STROKE_COLOR,
+            fillOpacity: 1.0,
+            strokeColor: "#FFFFFF",
+            strokeWeight: 2
+        }
+    });
+
+    // Clicking the 1st vertex again completes the polygon if >= 3 points exist
+    if (vertexMarkers.length === 0) {
+        marker.addListener("click", (e) => {
+            if (vertexPoints.length >= MIN_VERTICES) {
+                completePolygon();
+            }
+        });
+    }
+
+    vertexMarkers.push(marker);
+    updateDrawingPreview();
+}
+
+function updateDrawingPreview() {
+    if (previewPolyline) {
+        previewPolyline.setMap(null);
+    }
+
+    if (vertexPoints.length >= 2) {
+        previewPolyline = new google.maps.Polyline({
+            path: vertexPoints,
+            strokeColor: STROKE_COLOR,
+            strokeOpacity: 0.9,
+            strokeWeight: 3,
+            map: map
+        });
+    }
+
+    document.getElementById("readout-vertices").innerText = vertexPoints.length;
+
+    if (vertexPoints.length >= MIN_VERTICES) {
+        const areaSqMeters = google.maps.geometry.spherical.computeArea(vertexPoints);
+        const areaHectares = areaSqMeters / 10000;
+        document.getElementById("readout-area").innerText = `${areaHectares.toFixed(2)} ha`;
+
+        if (areaHectares > MAX_AREA_HECTARES) {
+            showError(`Area Limit Exceeded: Parcel is ${areaHectares.toFixed(1)} ha. Max allowed is ${MAX_AREA_HECTARES} ha.`);
+            document.getElementById("analyze-btn").disabled = true;
+        } else {
+            hideError();
+        }
     }
 }
 
-function processPolygon(polygon) {
-    const path = polygon.getPath();
+function completePolygon() {
+    if (vertexPoints.length < MIN_VERTICES) {
+        showError(`Geometry error: Polygon requires at least ${MIN_VERTICES} vertices.`);
+        return;
+    }
+
+    // Clean up preview markers and line
+    if (previewPolyline) {
+        previewPolyline.setMap(null);
+        previewPolyline = null;
+    }
+    vertexMarkers.forEach(m => m.setMap(null));
+    vertexMarkers = [];
+
+    // Construct final closed polygon overlay
+    currentPolygon = new google.maps.Polygon({
+        paths: vertexPoints,
+        strokeColor: STROKE_COLOR,
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: FILL_COLOR,
+        fillOpacity: 0.35,
+        editable: true,
+        map: map
+    });
+
+    const path = currentPolygon.getPath();
+    google.maps.event.addListener(path, "set_at", () => processPolygonPath(path));
+    google.maps.event.addListener(path, "insert_at", () => processPolygonPath(path));
+    google.maps.event.addListener(path, "remove_at", () => processPolygonPath(path));
+
+    processPolygonPath(path);
+}
+
+function processPolygonPath(path) {
     const len = path.getLength();
-    
-    // Update vertex UI readout
     document.getElementById("readout-vertices").innerText = len;
 
-    // 1. Check minimum vertices
     if (len < MIN_VERTICES) {
-        showError(`Geometry error: A polygon requires a minimum of ${MIN_VERTICES} vertices.`);
+        showError(`Geometry error: Minimum ${MIN_VERTICES} vertices required.`);
         document.getElementById("analyze-btn").disabled = true;
         return;
     }
 
-    // 2. Check maximum vertices (Pydantic / DB safeguard)
     if (len > MAX_VERTICES) {
-        showError(`Geometry error: Vertex count exceeds limit (${len}/${MAX_VERTICES}). Please simplify the shape.`);
+        showError(`Vertex count exceeds limit (${len}/${MAX_VERTICES}).`);
         document.getElementById("analyze-btn").disabled = true;
         return;
     }
 
-    // 3. Compute Hectares Area
     const areaSqMeters = google.maps.geometry.spherical.computeArea(path);
     const areaHectares = areaSqMeters / 10000;
     document.getElementById("readout-area").innerText = `${areaHectares.toFixed(2)} ha`;
 
-    // 4. Validate Area bounds
     if (areaHectares > MAX_AREA_HECTARES) {
-        showError(`Area Limit Exceeded: Selected parcel is ${areaHectares.toFixed(1)} hectares. Max allowed size is ${MAX_AREA_HECTARES} ha.`);
+        showError(`Area Limit Exceeded: Selected parcel is ${areaHectares.toFixed(1)} ha. Max allowed size is ${MAX_AREA_HECTARES} ha.`);
         document.getElementById("analyze-btn").disabled = true;
         return;
     }
 
     hideError();
 
-    // 5. Build snapped coordinate array (precision clipping to 6 decimal places per rules.md)
     const coordinates = [];
     for (let i = 0; i < len; i++) {
         const latLng = path.getAt(i);
@@ -169,7 +216,7 @@ function processPolygon(polygon) {
             parseFloat(latLng.lat().toFixed(PRECISION_DECIMALS))
         ]);
     }
-    
+
     // GeoJSON polygon loops MUST close (first and last coordinate are identical)
     coordinates.push([
         parseFloat(path.getAt(0).lng().toFixed(PRECISION_DECIMALS)),
@@ -181,19 +228,42 @@ function processPolygon(polygon) {
         coordinates: [coordinates]
     };
 
-    // Enable Submission Button
     document.getElementById("analyze-btn").disabled = false;
+}
+
+function clearPreviousPolygon() {
+    if (currentPolygon) {
+        currentPolygon.setMap(null);
+        currentPolygon = null;
+    }
+    if (previewPolyline) {
+        previewPolyline.setMap(null);
+        previewPolyline = null;
+    }
+    vertexMarkers.forEach(m => m.setMap(null));
+    vertexMarkers = [];
+    vertexPoints = [];
+    drawnGeoJSON = null;
+
+    document.getElementById("analyze-btn").disabled = true;
+    document.getElementById("readout-vertices").innerText = "0";
+    document.getElementById("readout-area").innerText = "0.00 ha";
+    hideError();
 }
 
 function showError(message) {
     const alertBox = document.getElementById("validation-error");
-    alertBox.innerText = message;
-    alertBox.style.display = "block";
+    if (alertBox) {
+        alertBox.innerText = message;
+        alertBox.style.display = "block";
+    }
 }
 
 function hideError() {
     const alertBox = document.getElementById("validation-error");
-    alertBox.style.display = "none";
+    if (alertBox) {
+        alertBox.style.display = "none";
+    }
 }
 
 async function submitAOI() {
@@ -203,7 +273,6 @@ async function submitAOI() {
     const startDate = document.getElementById("start-date").value;
     const endDate = document.getElementById("end-date").value;
 
-    // Date validation
     if (!startDate || !endDate) {
         showError("Invalid input: Please select both a start and end monitoring date.");
         return;
@@ -238,7 +307,6 @@ async function submitAOI() {
 
         if (response.ok) {
             alert(`Job enqueued successfully!\nJob ID: ${data.job_id}\nStatus: ${data.status}`);
-            // Redirect to monitoring jobs dashboard (Phase 2 page stub)
             window.location.href = "/jobs";
         } else {
             submitBtn.disabled = false;
