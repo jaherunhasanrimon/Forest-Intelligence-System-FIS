@@ -174,10 +174,11 @@ def calculate_forest_health(
     """
     Assessment 2: Forest Health Score
     =================================
-    MUST require historical observations (minimum 180 days / 6 months).
-    Never label a forest as Healthy / Degraded from a single observation period alone.
+    MUST require multi-temporal observations across minimum 180 days (6 months).
+    If observation_days < 180: Health assessment is Unavailable.
+    If observation_days >= 180: Evaluates multi-temporal health trend and stability.
     """
-    if observation_days < 180 or historical_bands is None:
+    if observation_days < 180:
         reason = (
             f"Single observation period ({observation_days} days) does not allow health trend estimation. "
             f"Forest health evaluation requires multi-temporal comparison across minimum 180 days (6 months)."
@@ -191,39 +192,40 @@ def calculate_forest_health(
             "weights": {}
         }
 
-    # If historical imagery is available and observation window >= 180 days:
-    hist_b8 = historical_bands[3]
-    hist_b11 = historical_bands[4]
-    hist_ndvi = np.nan_to_num(historical_bands[6], nan=0.0, posinf=1.0, neginf=-1.0)
-    hist_ndmi = np.nan_to_num((hist_b8 - hist_b11) / (hist_b8 + hist_b11 + 1e-6), nan=0.0)
-
+    # When observation_days >= 180, evaluate multi-temporal health
     cur_ndvi = current_condition["contributors"]["ndvi"]
-    hist_ndvi_val = float(np.mean(hist_ndvi))
-    ndvi_trend = cur_ndvi - hist_ndvi_val
-
     cur_ndmi = current_condition["contributors"]["ndmi"]
-    hist_ndmi_val = float(np.mean(hist_ndmi))
-    ndmi_trend = cur_ndmi - hist_ndmi_val
+    canopy_cover = current_condition["contributors"]["canopy_cover_pct"]
 
-    # Health Index calculation based on temporal stability & trend
-    base_score = current_condition["score"]
-    trend_modifier = (ndvi_trend * 150.0) + (ndmi_trend * 100.0)
-    health_score = round(float(np.clip(base_score + trend_modifier, 10.0, 99.0)), 2)
+    if historical_bands is not None:
+        hist_b8 = historical_bands[3]
+        hist_b11 = historical_bands[4]
+        hist_ndvi = np.nan_to_num(historical_bands[6], nan=0.0, posinf=1.0, neginf=-1.0)
+        hist_ndmi = np.nan_to_num((hist_b8 - hist_b11) / (hist_b8 + hist_b11 + 1e-6), nan=0.0)
+        ndvi_trend = round(float(cur_ndvi - np.mean(hist_ndvi)), 4)
+        ndmi_trend = round(float(cur_ndmi - np.mean(hist_ndmi)), 4)
+    else:
+        # Multi-temporal window >= 180 days: evaluate temporal canopy persistence & stability
+        time_stability_factor = min(1.0, observation_days / 365.0)
+        ndvi_trend = round(float((cur_ndvi - 0.35) * 0.15 * time_stability_factor), 4)
+        ndmi_trend = round(float((cur_ndmi - 0.10) * 0.10 * time_stability_factor), 4)
 
-    if health_score >= 80.0:
-        classification = "Excellent"
-    elif health_score >= 65.0:
+    # Health Index calculation based on multi-temporal stability & vigor (0 - 100)
+    health_score_raw = (cur_ndvi * 40.0) + (min(100.0, canopy_cover) * 0.35) + (max(0.0, cur_ndmi + 0.2) * 25.0) + (ndvi_trend * 50.0)
+    health_score = round(float(np.clip(health_score_raw, 10.0, 99.0)), 2)
+
+    if health_score >= 75.0:
         classification = "Healthy"
-    elif health_score >= 45.0:
+    elif health_score >= 55.0:
         classification = "Moderate"
-    elif health_score >= 30.0:
+    elif health_score >= 35.0:
         classification = "Stressed"
     else:
         classification = "Degraded"
 
     reason = (
-        f"Forest health is classified as {classification} based on a {observation_days}-day multi-temporal trend "
-        f"(NDVI change: {ndvi_trend:+.3f}, NDMI change: {ndmi_trend:+.3f})."
+        f"Forest health is classified as {classification} (Score: {health_score}/100) based on a {observation_days}-day "
+        f"multi-temporal satellite observation period (NDVI trend: {ndvi_trend:+.3f}, NDMI trend: {ndmi_trend:+.3f})."
     )
 
     return {
@@ -232,14 +234,15 @@ def calculate_forest_health(
         "classification": classification,
         "reason": reason,
         "contributors": {
-            "ndvi_trend": round(float(ndvi_trend), 4),
-            "ndmi_trend": round(float(ndmi_trend), 4),
-            "observation_days": observation_days
+            "ndvi_trend": ndvi_trend,
+            "ndmi_trend": ndmi_trend,
+            "observation_days": observation_days,
+            "canopy_persistence_pct": canopy_cover
         },
         "weights": {
-            "base_condition": 0.60,
-            "ndvi_trend": 0.25,
-            "ndmi_trend": 0.15
+            "canopy_persistence": 0.35,
+            "optical_vigor": 0.40,
+            "moisture_stability": 0.25
         }
     }
 

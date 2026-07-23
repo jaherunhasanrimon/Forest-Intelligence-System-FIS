@@ -63,7 +63,7 @@ def generate_executive_summary(aoi: AOI, analysis: AnalysisResult, job: Job) -> 
         f"coverage of {cover_pct:.1f}%, supporting an estimated {tree_count:,} trees and a total dry biomass "
         f"stock of {biomass:,.1f} tonnes ({biomass/max(0.1, area_ha):,.1f} t/ha). Under IPCC Tier 1 standards, "
         f"this biomass sequesters approximately {carbon:,.1f} tonnes of elemental carbon, representing a "
-        f"carbon dioxide equivalent (CO₂e) offset of {co2e:,.1f} tonnes. "
+        f"carbon dioxide equivalent (CO2e) offset of {co2e:,.1f} tonnes. "
         f"The Current Vegetation Condition is rated as <b>{cur_class}</b>. "
         f"{health_str} "
         f"The Reforestation and Conservation Suitability Score is evaluated at <b>{score:.1f}/100</b>."
@@ -238,8 +238,8 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
             Paragraph(f"<b>{analysis.suitability_score} / 100</b>", body_style)
         ],
         [
-            Paragraph("<b>CO₂e Offset</b>", body_style),
-            Paragraph(f"<b>{analysis.co2_equivalent_tons:,.1f} t CO₂e</b>", body_style),
+            Paragraph("<b>CO2e Offset</b>", body_style),
+            Paragraph(f"<b>{analysis.co2_equivalent_tons:,.1f} t CO2e</b>", body_style),
             Paragraph("<b>AOI Surface Area</b>", body_style),
             Paragraph(f"{aoi.area_hectares:,.2f} ha", body_style)
         ]
@@ -291,7 +291,7 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
         [Paragraph("<b>Parameter</b>", body_style), Paragraph("<b>Value / Specification</b>", body_style)],
         [Paragraph("Parcel Name", body_style), Paragraph(f"<b>{aoi.name}</b>", body_style)],
         [Paragraph("Observation Window", body_style), Paragraph(f"{job.start_date} to {job.end_date} ({obs_days} days)", body_style)],
-        [Paragraph("Historical Health Analysis", body_style), Paragraph(f"{'Available' if health_info.get('available') else 'Unavailable (Requires >= 180 days)'}", body_style)],
+        [Paragraph("Historical Health Analysis", body_style), Paragraph(f"{'Available (' + str(health_info.get('classification', 'Healthy')) + ' — ' + str(obs_days) + ' days)' if health_info.get('available') else 'Unavailable (Requires >= 180 days)'}", body_style)],
         [Paragraph("Satellite Sensors", body_style), Paragraph("Sentinel-1 SAR C-Band + Sentinel-2 Optical", body_style)],
         [Paragraph("Raster Resolution", body_style), Paragraph("10.0m / pixel (10-Band Composite)", body_style)],
         [Paragraph("Report Generated", body_style), Paragraph(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"), body_style)]
