@@ -46,7 +46,7 @@ flowchart TD
     subgraph Processing Engine
         GEE["Google Earth Engine API"]
         Composite["10-Band Composite Engine (S1 SAR + S2 Optical)"]
-        AI Engine["AI Analytics Engine (3-Assessment Model)"]
+        AIEngine["AI Analytics Engine (3-Assessment Model)"]
         ValFramework["Scientific Validation Framework (validation_service)"]
         ReportEngine["ReportLab PDF & Jinja2 HTML Engine"]
     end
@@ -65,11 +65,11 @@ flowchart TD
     GEE -->|5. Build 10-Band Stack| Composite
     Composite -->|6. Store & Stream GeoTIFF| DriveStorage
     Composite -->|6. Local Stream Fallback| LocalStorage
-    DriveStorage --> AI Engine
-    LocalStorage --> AI Engine
-    AI Engine -->|7. Run 3 Assessments| ValFramework
+    DriveStorage --> AIEngine
+    LocalStorage --> AIEngine
+    AIEngine -->|7. Run 3 Assessments| ValFramework
     ValFramework -->|8. Audit Formulas & Literature Ranges| DB
-    AI Engine --> ReportEngine
+    AIEngine --> ReportEngine
     ReportEngine -->|9. Generate Executive PDF/HTML Reports| LocalStorage
     JobsUI -->|10. Poll Status & Download Report| JobRoutes
 ```
