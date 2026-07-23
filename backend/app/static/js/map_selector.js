@@ -319,6 +319,20 @@ function hideError() {
     }
 }
 
+function resetSubmitBtn(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.classList.remove("btn-loading");
+    btn.innerHTML = `
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 12L18.5 5.5"/>
+            <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+        </svg>
+        <span>Start Automated Analysis</span>
+    `;
+}
+
 async function submitAOI() {
     if (!drawnGeoJSON) return;
 
@@ -337,7 +351,14 @@ async function submitAOI() {
 
     const submitBtn = document.getElementById("analyze-btn");
     submitBtn.disabled = true;
-    submitBtn.innerHTML = "<span>⏳</span> Enqueueing Job...";
+    submitBtn.classList.add("btn-loading");
+    submitBtn.innerHTML = `
+        <svg class="btn-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-linecap="round"/>
+        </svg>
+        <span>Initializing Analysis...</span>
+    `;
 
     try {
         const response = await fetch("/api/aoi", {
@@ -351,17 +372,14 @@ async function submitAOI() {
         const data = await response.json();
 
         if (response.ok) {
-            alert(`Job enqueued successfully!\nJob ID: ${data.job_id}\nStatus: ${data.status}`);
             window.location.href = "/jobs";
         } else {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = "<span>🚀</span> Start Automated Analysis";
+            resetSubmitBtn(submitBtn);
             const detail = data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : "API Submission failed.";
             showError(`Submission Failed: ${detail}`);
         }
     } catch (error) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = "<span>🚀</span> Start Automated Analysis";
+        resetSubmitBtn(submitBtn);
         showError(`Network Connection Error: ${error.message}`);
     }
 }

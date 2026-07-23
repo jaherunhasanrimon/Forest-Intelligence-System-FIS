@@ -58,9 +58,31 @@
         <!-- Validation Alerts -->
         <div class="validation-alert" id="validation-error"></div>
 
-        <button id="analyze-btn" class="btn btn-primary" disabled>
-            <span>🚀</span> Start Automated Analysis
-        </button>
+        <div class="cta-container">
+            <button id="analyze-btn" class="btn-enterprise-cta" disabled>
+                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 12L18.5 5.5"/>
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+                </svg>
+                <span>Start Automated Analysis</span>
+            </button>
+
+            <div class="cta-helper-text">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <span>Satellite imagery will be processed automatically using Google Earth Engine.</span>
+            </div>
+
+            <div class="cta-time-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>Approximately 2–5 minutes</span>
+            </div>
+        </div>
     </aside>
 
     <!-- Right panel: Interactive Google Map Selector -->
