@@ -18,6 +18,7 @@ python-multipart==0.0.9
 Jinja2==3.1.4
 reportlab==5.0.0
 pillow==12.3.0
-uvicorn==0.51.0
+rasterio>=1.4.0
+tifffile>=2024.1.1
 
 
