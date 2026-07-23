@@ -355,13 +355,13 @@ async function submitAOI() {
             window.location.href = "/jobs";
         } else {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = "<span>🚀</span> Start Automated Analysis";
+            submitBtn.innerHTML = "Start Automated Analysis";
             const detail = data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : "API Submission failed.";
             showError(`Submission Failed: ${detail}`);
         }
     } catch (error) {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = "<span>🚀</span> Start Automated Analysis";
+        submitBtn.innerHTML = "Start Automated Analysis";
         showError(`Network Connection Error: ${error.message}`);
     }
 }
