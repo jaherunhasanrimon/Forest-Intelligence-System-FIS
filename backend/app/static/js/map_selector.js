@@ -76,7 +76,12 @@ function initMap() {
         clearBtn.addEventListener("click", clearPreviousPolygon);
     }
 
-    // 6. Initialize submit listener
+    // 6. Initialize submit listener and date range validation
+    const startDateInput = document.getElementById("start-date");
+    const endDateInput = document.getElementById("end-date");
+    if (startDateInput) startDateInput.addEventListener("change", validateDateInputs);
+    if (endDateInput) endDateInput.addEventListener("change", validateDateInputs);
+
     document.getElementById("analyze-btn").addEventListener("click", submitAOI);
 }
 
@@ -251,10 +256,57 @@ function clearPreviousPolygon() {
     hideError();
 }
 
+function validateDateInputs() {
+    const startDateVal = document.getElementById("start-date").value;
+    const endDateVal = document.getElementById("end-date").value;
+
+    if (!startDateVal || !endDateVal) {
+        showError("Invalid date input: Please select both a start and end monitoring date.");
+        document.getElementById("analyze-btn").disabled = true;
+        return false;
+    }
+
+    const startDate = new Date(startDateVal);
+    const endDate = new Date(endDateVal);
+    const s2MinDate = new Date("2015-06-23");
+
+    if (startDate >= endDate) {
+        showError("⚠️ Invalid Date Range: Start date must be earlier than the End date.");
+        document.getElementById("analyze-btn").disabled = true;
+        return false;
+    }
+
+    if (startDate < s2MinDate) {
+        showWarning("ℹ️ Selected start date is before Sentinel-2 launch (June 23, 2015). The server will automatically query satellite imagery starting from 2015-06-23.");
+        if (drawnGeoJSON) {
+            document.getElementById("analyze-btn").disabled = false;
+        }
+        return true;
+    }
+
+    if (drawnGeoJSON) {
+        hideError();
+        document.getElementById("analyze-btn").disabled = false;
+    } else {
+        hideError();
+    }
+    return true;
+}
+
 function showError(message) {
     const alertBox = document.getElementById("validation-error");
     if (alertBox) {
         alertBox.innerText = message;
+        alertBox.classList.remove("warning");
+        alertBox.style.display = "block";
+    }
+}
+
+function showWarning(message) {
+    const alertBox = document.getElementById("validation-error");
+    if (alertBox) {
+        alertBox.innerText = message;
+        alertBox.classList.add("warning");
         alertBox.style.display = "block";
     }
 }
@@ -262,6 +314,7 @@ function showError(message) {
 function hideError() {
     const alertBox = document.getElementById("validation-error");
     if (alertBox) {
+        alertBox.classList.remove("warning");
         alertBox.style.display = "none";
     }
 }
@@ -269,19 +322,11 @@ function hideError() {
 async function submitAOI() {
     if (!drawnGeoJSON) return;
 
+    if (!validateDateInputs()) return;
+
     const name = document.getElementById("parcel-name").value.trim() || "Dhaka Forest Sector 1";
     const startDate = document.getElementById("start-date").value;
     const endDate = document.getElementById("end-date").value;
-
-    if (!startDate || !endDate) {
-        showError("Invalid input: Please select both a start and end monitoring date.");
-        return;
-    }
-
-    if (new Date(startDate) >= new Date(endDate)) {
-        showError("Invalid input: Start date must be earlier than the end date.");
-        return;
-    }
 
     const payload = {
         name: name,

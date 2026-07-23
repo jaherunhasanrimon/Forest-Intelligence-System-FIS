@@ -18,13 +18,16 @@
             <div style="display: flex; gap: 12px;">
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label class="form-label" style="font-size: 9px;" for="start-date">Start Date</label>
-                    <input type="date" id="start-date" class="form-input" value="2025-01-01">
+                    <input type="date" id="start-date" class="form-input" value="2025-01-01" min="2015-06-23">
                 </div>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
                     <label class="form-label" style="font-size: 9px;" for="end-date">End Date</label>
-                    <input type="date" id="end-date" class="form-input" value="2025-06-01">
+                    <input type="date" id="end-date" class="form-input" value="2025-06-01" min="2015-06-23">
                 </div>
             </div>
+            <small style="font-size: 11px; color: var(--text-secondary); margin-top: 4px; display: block;">
+                ℹ️ Sentinel-2 satellite imagery is available starting from <strong>June 23, 2015</strong> to present.
+            </small>
         </div>
 
         <!-- Drawing Action Controls -->
