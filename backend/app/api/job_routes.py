@@ -105,6 +105,46 @@ def download_job_report(job_id: int, format: str = "pdf", db: Session = Depends(
     )
 
 
+@router.get("/{job_id}/validation")
+def get_job_validation_report(job_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieve the Scientific Validation Report for a specific job,
+    including formula audits, ecosystem reference range checks, cross-dataset validation,
+    and categorical confidence level (High, Medium, Low).
+    """
+    db_job = db.query(Job).filter(Job.id == job_id).first()
+    if not db_job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Monitoring Job with ID {job_id} not found."
+        )
+
+    analysis = db.query(AnalysisResult).filter(AnalysisResult.job_id == job_id).first()
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis results for Job #{job_id} not found."
+        )
+
+    result_layers = analysis.result_layers or {}
+    val_report = result_layers.get("validation_report")
+    if not val_report:
+        from app.services.validation_service import generate_validation_report
+        val_report = generate_validation_report(
+            analysis_results={
+                "forest_cover_pct": float(analysis.forest_cover_pct or 0.0),
+                "biomass_tons": float(analysis.biomass_tons or 0.0),
+                "carbon_tons": float(analysis.carbon_tons or 0.0),
+                "co2_equivalent_tons": float(analysis.co2_equivalent_tons or 0.0),
+            },
+            aoi_name=f"Job #{job_id} AOI",
+            area_hectares=100.0,
+            observation_days=(db_job.end_date - db_job.start_date).days if (db_job.end_date and db_job.start_date) else 30
+        )
+
+    return val_report
+
+
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_job(job_id: int, db: Session = Depends(get_db)):
     """

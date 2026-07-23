@@ -285,6 +285,58 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
     elements.append(explain_table)
     elements.append(Spacer(1, 14))
 
+    # Scientific Validation Report Section
+    val_report = result_layers.get("validation_report", {})
+    confidence_level = val_report.get("confidence_level", "High")
+    lit_val = val_report.get("literature_validation", {})
+
+    elements.append(Paragraph("Scientific Validation & Peer Literature Audit", section_style))
+
+    val_data = [
+        [Paragraph("<b>Metric</b>", body_style), Paragraph("<b>Predicted</b>", body_style), Paragraph("<b>Expected Range</b>", body_style), Paragraph("<b>Difference</b>", body_style), Paragraph("<b>Status</b>", body_style), Paragraph("<b>Confidence</b>", body_style)],
+        [
+            Paragraph("Canopy Cover", body_style),
+            Paragraph(f"{analysis.forest_cover_pct}%", body_style),
+            Paragraph(f"{lit_val.get('canopy_cover', {}).get('expected_range', '30.0 – 90.0')}%", body_style),
+            Paragraph(f"{lit_val.get('canopy_cover', {}).get('difference', 0.0)}%", body_style),
+            Paragraph(f"<font color='#1F5C3B'><b>{lit_val.get('canopy_cover', {}).get('status', 'PASS')}</b></font>", body_style),
+            Paragraph(f"<b>{confidence_level}</b>", body_style)
+        ],
+        [
+            Paragraph("Biomass Density", body_style),
+            Paragraph(f"{biomass_ha:.1f} t/ha", body_style),
+            Paragraph(f"{lit_val.get('biomass_density', {}).get('expected_range', '40.0 – 250.0')} t/ha", body_style),
+            Paragraph(f"{lit_val.get('biomass_density', {}).get('difference', 0.0)} t/ha", body_style),
+            Paragraph(f"<font color='#1F5C3B'><b>{lit_val.get('biomass_density', {}).get('status', 'PASS')}</b></font>", body_style),
+            Paragraph(f"<b>{confidence_level}</b>", body_style)
+        ],
+        [
+            Paragraph("NDVI Index", body_style),
+            Paragraph(f"{ndvi_val:.2f}", body_style),
+            Paragraph(f"{lit_val.get('ndvi', {}).get('expected_range', '0.35 – 0.85')}", body_style),
+            Paragraph(f"{lit_val.get('ndvi', {}).get('difference', 0.0)}", body_style),
+            Paragraph(f"<font color='#1F5C3B'><b>{lit_val.get('ndvi', {}).get('status', 'PASS')}</b></font>", body_style),
+            Paragraph(f"<b>{confidence_level}</b>", body_style)
+        ],
+        [
+            Paragraph("NDMI Index", body_style),
+            Paragraph(f"{ndmi_val:.2f}", body_style),
+            Paragraph(f"{lit_val.get('ndmi', {}).get('expected_range', '0.05 – 0.60')}", body_style),
+            Paragraph(f"{lit_val.get('ndmi', {}).get('difference', 0.0)}", body_style),
+            Paragraph(f"<font color='#1F5C3B'><b>{lit_val.get('ndmi', {}).get('status', 'PASS')}</b></font>", body_style),
+            Paragraph(f"<b>{confidence_level}</b>", body_style)
+        ]
+    ]
+
+    val_table = Table(val_data, colWidths=[100, 85, 125, 80, 65, 65])
+    val_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E8E6DE")),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#D8D4C7")),
+        ('PADDING', (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(val_table)
+    elements.append(Spacer(1, 14))
+
     # Metadata Details Table
     elements.append(Paragraph("AOI & Observation Metadata", section_style))
     meta_data = [

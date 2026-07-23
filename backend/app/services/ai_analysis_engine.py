@@ -374,7 +374,24 @@ def analyze_geotiff(
     os.makedirs(output_dir, exist_ok=True)
     mask_file_path = os.path.join(output_dir, f"job_{job_id}_mask.png")
 
-    # Construct explainability payload
+    # Generate Scientific Validation Report
+    from app.services.validation_service import generate_validation_report
+    val_report = generate_validation_report(
+        analysis_results={
+            "forest_cover_pct": canopy_cover_pct,
+            "biomass_tons": biomass_tons,
+            "carbon_tons": carbon_tons,
+            "co2_equivalent_tons": co2_equivalent_tons,
+            "current_condition": current_condition,
+            "forest_health": forest_health,
+            "reforestation_suitability": reforestation_suitability
+        },
+        aoi_name=f"Job #{job_id} AOI",
+        area_hectares=area_hectares,
+        observation_days=observation_days
+    )
+
+    # Construct explainability & validation payload
     explainability = {
         "current_condition": current_condition,
         "forest_health": forest_health,
@@ -385,7 +402,8 @@ def analyze_geotiff(
         "canopy_mask": mask_file_path,
         "raster_resolution_m": 10.0,
         "bands_processed": 10,
-        "explainability": explainability
+        "explainability": explainability,
+        "validation_report": val_report
     }
 
     # Backward compatible fields + Scientific fields
@@ -414,12 +432,13 @@ def analyze_geotiff(
         "result_layers": result_layers,
         "current_condition": current_condition,
         "forest_health": forest_health,
-        "reforestation_suitability": reforestation_suitability
+        "reforestation_suitability": reforestation_suitability,
+        "validation_report": val_report
     }
 
     logger.info(
-        "AI Analysis completed for Job ID %d: Condition=%s (Score=%.1f), Health=%s, Suitability=%.1f",
+        "AI Analysis completed for Job ID %d: Condition=%s (Score=%.1f), Health=%s, Suitability=%.1f, Confidence=%s",
         job_id, current_condition["classification"], current_condition["score"],
-        health_category, reforestation_suitability["score"]
+        health_category, reforestation_suitability["score"], val_report["confidence_level"]
     )
     return results
