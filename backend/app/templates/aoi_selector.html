@@ -33,10 +33,18 @@
         <!-- Drawing Action Controls -->
         <div style="display: flex; gap: 8px; margin-bottom: 16px;">
             <button id="draw-poly-btn" type="button" class="btn" style="flex: 1; background-color: var(--accent-action); color: #FFFFFF; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span>✏️</span> Draw Polygon
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span>Draw Polygon</span>
             </button>
             <button id="clear-poly-btn" type="button" class="btn" style="background-color: transparent; border: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; padding: 8px 12px;" onclick="clearPreviousPolygon()">
-                <span>🗑️</span> Clear
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Clear</span>
             </button>
         </div>
 
@@ -72,7 +80,12 @@
 
         <!-- Drawing Instruction Tooltip Overlay -->
         <div style="position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 5; background: rgba(18, 26, 20, 0.90); backdrop-filter: blur(8px); border: 1px solid rgba(127, 174, 92, 0.4); border-radius: 20px; padding: 8px 18px; color: #E8F0E6; font-size: 13px; font-weight: 500; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 15px;">📐</span> <span>Click anywhere on the map to start drawing. Click each vertex corner and <b>double-click</b> to complete parcel shape.</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FAE5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span>Click anywhere on the map to start drawing. Click each vertex corner and <b>double-click</b> to complete parcel shape.</span>
         </div>
 
         <!-- Map element -->

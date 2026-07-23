@@ -10,8 +10,12 @@
         <p style="color: var(--text-secondary); font-size: 15px;">
             Track and monitor the state of Google Earth Engine integrations and AI pipeline jobs.
         </p>
-        <a href="/" class="btn btn-primary" style="width: auto; padding: 8px 16px;">
-            <span>➕</span> New Analysis
+        <a href="/" class="btn btn-primary" style="width: auto; padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>New Analysis</span>
         </a>
     </div>
 
@@ -60,8 +64,14 @@
                     
                     <!-- Actions -->
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <a id="report-btn-{{ job.id }}" href="/api/jobs/{{ job.id }}/report/download" target="_blank" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 13px; text-decoration: none; display: {% if job.status == 'COMPLETED' %}inline-flex{% else %}none{% endif %};">
-                            📄 Download PDF Report
+                        <a id="report-btn-{{ job.id }}" href="/api/jobs/{{ job.id }}/report/download" target="_blank" class="btn btn-primary" style="width: auto; padding: 6px 14px; font-size: 13px; text-decoration: none; display: {% if job.status == 'COMPLETED' %}inline-flex{% else %}none{% endif %}; align-items: center; gap: 6px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            <span>Download PDF Report</span>
                         </a>
                         <button class="btn btn-danger" onclick="deleteJob({{ job.id }})" style="background-color: transparent; border: 1px solid var(--border); color: var(--error); width: auto; padding: 6px 12px; font-size: 13px;">
                             Cancel / Delete
