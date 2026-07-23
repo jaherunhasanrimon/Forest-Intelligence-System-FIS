@@ -17,9 +17,21 @@ Runs 100% locally using NumPy, SciPy, and Rasterio. Requires no external AI API 
 
 import os
 import math
+import hashlib
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional, Tuple
 import numpy as np
+
+# Optional geospatial raster readers — installed via: pip install rasterio tifffile
+try:
+    import rasterio
+except ImportError:
+    rasterio = None  # type: ignore[assignment]
+
+try:
+    import tifffile
+except ImportError:
+    tifffile = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -34,26 +46,25 @@ def read_geotiff_bands(geotiff_path: str) -> Tuple[np.ndarray, Tuple[int, int]]:
         raise FileNotFoundError(f"GeoTIFF image file not found at: {geotiff_path}")
 
     # 1. Primary reader: Rasterio
-    try:
-        import rasterio
-        with rasterio.open(geotiff_path) as src:
-            data = src.read()  # Shape: (num_bands, height, width)
-            return data, (src.height, src.width)
-    except Exception as exc1:
-        logger.warning("Rasterio reader failed (%s). Trying tifffile fallback...", exc1)
+    if rasterio is not None:
+        try:
+            with rasterio.open(geotiff_path) as src:
+                data = src.read()  # Shape: (num_bands, height, width)
+                return data, (src.height, src.width)
+        except Exception as exc1:
+            logger.warning("Rasterio reader failed (%s). Trying tifffile fallback...", exc1)
 
     # 2. Secondary reader: Tifffile
-    try:
-        import tifffile
-        data = tifffile.imread(geotiff_path)  # Shape: (height, width, num_bands) or (num_bands, height, width)
-        if data.ndim == 3 and data.shape[2] <= 10:
-            data = np.transpose(data, (2, 0, 1))
-        return data, (data.shape[1], data.shape[2])
-    except Exception as exc2:
-        logger.warning("Tifffile reader failed (%s). Utilizing content-hashed NumPy fallback.", exc2)
+    if tifffile is not None:
+        try:
+            data = tifffile.imread(geotiff_path)  # Shape: (height, width, num_bands) or (num_bands, height, width)
+            if data.ndim == 3 and data.shape[2] <= 10:
+                data = np.transpose(data, (2, 0, 1))
+            return data, (data.shape[1], data.shape[2])
+        except Exception as exc2:
+            logger.warning("Tifffile reader failed (%s). Utilizing content-hashed NumPy fallback.", exc2)
 
-    # 3. Dynamic hash fallback based on file content (avoids identical seed 42)
-    import hashlib
+    # 3. Dynamic hash fallback based on file content (unique seed per file)
     with open(geotiff_path, "rb") as f:
         file_seed = int(hashlib.md5(f.read()).hexdigest()[:8], 16)
 
@@ -64,8 +75,8 @@ def read_geotiff_bands(geotiff_path: str) -> Tuple[np.ndarray, Tuple[int, int]]:
         bands.append(rng.uniform(0.05, 0.45, (height, width)))
     bands.append(rng.uniform(0.3, 0.8, (height, width)))   # NDVI
     bands.append(rng.uniform(0.2, 0.6, (height, width)))   # EVI
-    bands.append(rng.uniform(-18.0, -5.0, (height, width))) # VV
-    bands.append(rng.uniform(-25.0, -10.0, (height, width))) # VH
+    bands.append(rng.uniform(-18.0, -5.0, (height, width)))  # VV
+    bands.append(rng.uniform(-25.0, -10.0, (height, width)))  # VH
     return np.array(bands), (height, width)
 
 
