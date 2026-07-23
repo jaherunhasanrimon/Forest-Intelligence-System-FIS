@@ -3,6 +3,7 @@ import os
 import time
 import zipfile
 import logging
+from typing import Dict, Any, Optional, Tuple
 import requests
 import ee
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from app.db import SessionLocal
 from app.models.job import Job
 from app.models.aoi import AOI
 from app.models.satellite_dataset import SatelliteDataset
+from app.services.drive_service import upload_geotiff_to_drive, get_drive_file_web_url
 from app.services.gee_service import authenticate_gee
 from app.services.gee_script import create_10band_composite
 from app.services.job_orchestrator import update_job_status
@@ -78,6 +80,24 @@ def download_gee_image_locally(image: ee.Image, aoi_geom: ee.Geometry, job_id: i
             logger.warning("Download failed at %dm scale: %s. Trying next scale...", scale, exc)
 
     raise RuntimeError(f"GEE Direct Download failed for Job #{job_id}. {last_error}")
+
+
+def export_gee_image_to_drive(image: ee.Image, aoi_geom: ee.Geometry, job_id: int) -> tuple[Optional[str], Optional[str]]:
+    """
+    Download GeoTIFF from GEE directly (adaptive scale), then upload to Google Drive.
+    """
+    local_path = download_gee_image_locally(image, aoi_geom, job_id)
+
+    remote_filename = f"job_{job_id}.tif"
+    folder_id = settings.GOOGLE_DRIVE_FOLDER_ID
+    drive_file_id = upload_geotiff_to_drive(local_path, remote_filename, folder_id)
+    drive_web_url = get_drive_file_web_url(drive_file_id) if drive_file_id else None
+
+    logger.info(
+        "GeoTIFF for Job #%d processed for Drive export — file ID: %s, URL: %s",
+        job_id, drive_file_id, drive_web_url
+    )
+    return drive_file_id, drive_web_url
 
 
 def export_gee_image_to_gcs(image: ee.Image, aoi_geom: ee.Geometry, job_id: int) -> str:
@@ -151,19 +171,31 @@ def run_gee_export_task(job_id: int):
         if backend == "gcs":
             gcs_uri = export_gee_image_to_gcs(composite_image, aoi_geom, job_id)
             local_path = None
+            drive_file_id = None
+            drive_web_url = None
+        elif backend == "drive":
+            # export_gee_image_to_drive internally calls download_gee_image_locally first
+            # so the file is also present at storage/geotiffs/job_{id}.tif locally
+            drive_file_id, drive_web_url = export_gee_image_to_drive(composite_image, aoi_geom, job_id)
+            local_path = os.path.join(settings.LOCAL_STORAGE_PATH, "geotiffs", f"job_{job_id}.tif")
+            gcs_uri = None
         else:
             local_path = download_gee_image_locally(composite_image, aoi_geom, job_id)
             gcs_uri = None
+            drive_file_id = None
+            drive_web_url = None
 
         # 6. Save SatelliteDataset record in DB
         file_size_mb = os.path.getsize(local_path) / (1024 * 1024) if local_path and os.path.exists(local_path) else 0.0
-        
+
         dataset = db.query(SatelliteDataset).filter(SatelliteDataset.job_id == job_id).first()
         if not dataset:
             dataset = SatelliteDataset(
                 job_id=job_id,
                 gcs_uri=gcs_uri,
                 local_path=local_path,
+                drive_file_id=drive_file_id,
+                drive_web_url=drive_web_url,
                 band_count=metadata.get("band_count", 10),
                 resolution_m=10.0,
                 crs="EPSG:4326",
@@ -173,6 +205,8 @@ def run_gee_export_task(job_id: int):
         else:
             dataset.gcs_uri = gcs_uri
             dataset.local_path = local_path
+            dataset.drive_file_id = drive_file_id
+            dataset.drive_web_url = drive_web_url
             dataset.file_size_mb = round(file_size_mb, 2)
 
         db.commit()

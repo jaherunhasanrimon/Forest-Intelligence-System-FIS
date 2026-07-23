@@ -10,8 +10,10 @@ class SatelliteDataset(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
-    gcs_uri = Column(String(255), nullable=True)
-    local_path = Column(String(255), nullable=True)
+    gcs_uri = Column(String(255), nullable=True)       # Google Cloud Storage URI (gs://...)
+    local_path = Column(String(255), nullable=True)    # Local disk path (storage/geotiffs/...)
+    drive_file_id = Column(String(255), nullable=True) # Google Drive file ID
+    drive_web_url = Column(String(500), nullable=True) # Google Drive shareable web URL
     band_count = Column(Integer, default=10, nullable=False)
     resolution_m = Column(DECIMAL(5, 2), nullable=True)
     crs = Column(String(30), nullable=True)

@@ -31,16 +31,20 @@ class Settings(BaseSettings):
     #   "local"  — saves files to LOCAL_STORAGE_PATH on disk.
     #              No cloud credentials required. Default for development.
     #   "gcs"    — Google Cloud Storage. Requires GCS_BUCKET_NAME and billing.
-    #   "drive"  — Google Drive. Stub only; not yet implemented.
+    #   "drive"  — Google Drive. Uploads GeoTIFFs to the shared Drive folder.
+    #              Requires GOOGLE_DRIVE_FOLDER_ID and Drive API enabled.
     #
     # To switch backends, just change STORAGE_BACKEND in .env.
-    # All task code calls get_storage_provider() — no task changes needed.
     # -------------------------------------------------------------------------
     STORAGE_BACKEND: str = "local"
 
     # GCS bucket name. Set to "not-configured" when GCS is unavailable.
-    # Application startup will NOT fail when this is "not-configured".
     GCS_BUCKET_NAME: str = "not-configured"
+
+    # Google Drive folder ID for GeoTIFF exports.
+    # Share the target Drive folder with the service account email as Editor.
+    # Set to "not-configured" when Drive backend is not in use.
+    GOOGLE_DRIVE_FOLDER_ID: str = "not-configured"
 
     # Root directory for local file storage (geotiffs, outputs, reports)
     LOCAL_STORAGE_PATH: str = "storage"
@@ -55,13 +59,16 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    DATABASE_URL_OVERRIDE: str = "sqlite:///./dev.db"
+    USE_MYSQL: bool = True
+    DATABASE_URL_OVERRIDE: str = ""
 
     @property
     def DATABASE_URL(self) -> str:
         if self.DATABASE_URL_OVERRIDE:
             return self.DATABASE_URL_OVERRIDE
-        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+        if self.USE_MYSQL:
+            return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
+        return "sqlite:///./dev.db"
 
     @property
     def resolved_key_path(self) -> str:
@@ -93,15 +100,22 @@ class Settings(BaseSettings):
         return self.GCS_BUCKET_NAME not in ("", "not-configured")
 
     @property
+    def drive_configured(self) -> bool:
+        """True only when a Google Drive folder ID has been provided."""
+        return self.GOOGLE_DRIVE_FOLDER_ID not in ("", "not-configured")
+
+    @property
     def effective_storage_backend(self) -> str:
         """
         Returns the storage backend that will actually be used.
 
-        If STORAGE_BACKEND=gcs but GCS_BUCKET_NAME is not configured,
-        this silently falls back to 'local' so the app can still run
-        without cloud billing enabled.
+        Falls back to 'local' if the configured backend is not fully set up:
+          - 'gcs' without GCS_BUCKET_NAME  → 'local'
+          - 'drive' without GOOGLE_DRIVE_FOLDER_ID → 'local'
         """
         if self.STORAGE_BACKEND == "gcs" and not self.gcs_configured:
+            return "local"
+        if self.STORAGE_BACKEND == "drive" and not self.drive_configured:
             return "local"
         return self.STORAGE_BACKEND
 
