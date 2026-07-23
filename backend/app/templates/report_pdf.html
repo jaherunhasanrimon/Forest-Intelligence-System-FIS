@@ -263,28 +263,28 @@
                 <div class="metric-value">{{ analysis.forest_cover_pct }}<span class="metric-unit">%</span></div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Estimated Trees</div>
-                <div class="metric-value">{{ "{:,}".format(analysis.tree_count) }}</div>
+                <div class="metric-label">Current Condition</div>
+                <div class="metric-value">
+                    <span class="badge-healthy" style="background: rgba(31,92,59,0.1); color: var(--accent);">{{ report.current_classification }}</span>
+                </div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Forest Health</div>
                 <div class="metric-value">
-                    {% if analysis.health_category == 'Healthy' %}
-                        <span class="badge-healthy">Healthy</span>
-                    {% elif analysis.health_category == 'Stressed' %}
-                        <span class="badge-stressed">Stressed</span>
+                    {% if report.forest_health and report.forest_health.available %}
+                        <span class="badge-healthy">{{ report.forest_health.classification }}</span>
                     {% else %}
-                        <span class="badge-degraded">Degraded</span>
+                        <span class="badge-stressed" style="background: rgba(91,102,93,0.1); color: var(--text-secondary);">N/A (Single Period)</span>
                     {% endif %}
                 </div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Dry Biomass</div>
-                <div class="metric-value">{{ "{:,.1f}".format(analysis.biomass_tons) }} <span class="metric-unit">tonnes</span></div>
+                <div class="metric-label">Estimated Trees</div>
+                <div class="metric-value">{{ "{:,}".format(analysis.tree_count) }}</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">Carbon Stock</div>
-                <div class="metric-value">{{ "{:,.1f}".format(analysis.carbon_tons) }} <span class="metric-unit">t C</span></div>
+                <div class="metric-label">Suitability Score</div>
+                <div class="metric-value">{{ analysis.suitability_score }} <span class="metric-unit">/ 100</span></div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">CO₂ Equivalent Offset</div>

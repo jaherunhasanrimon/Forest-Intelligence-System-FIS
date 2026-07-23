@@ -41,11 +41,16 @@ def run_ai_analysis_task(job_id: int):
         else:
             geotiff_path = dataset.local_path
 
+        # Calculate observation window length in days
+        observation_days = (db_job.end_date - db_job.start_date).days if (db_job.end_date and db_job.start_date) else 30
+        observation_days = max(1, observation_days)
+
         # 3. Run AI Inference Engine
         results = analyze_geotiff(
             geotiff_path=geotiff_path,
             area_hectares=float(db_aoi.area_hectares or 100.0),
-            job_id=job_id
+            job_id=job_id,
+            observation_days=observation_days
         )
 
         # 4. Save/Update AnalysisResult in Database

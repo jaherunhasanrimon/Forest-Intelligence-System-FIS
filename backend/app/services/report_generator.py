@@ -3,7 +3,7 @@ Automated Report Generation Service
 ===================================
 
 Compiles executive summary data, renders Jinja2 HTML templates,
-and generates PDF reports using ReportLab.
+and generates PDF reports using ReportLab with scientifically valid metrics.
 """
 
 import os
@@ -22,9 +22,10 @@ from app.models.analysis_result import AnalysisResult
 logger = logging.getLogger(__name__)
 
 
-def generate_executive_summary(aoi: AOI, analysis: AnalysisResult) -> str:
+def generate_executive_summary(aoi: AOI, analysis: AnalysisResult, job: Job) -> str:
     """
-    Constructs an automated diagnostic executive summary paragraph.
+    Constructs an automated diagnostic executive summary paragraph based on
+    scientifically separated single-period and multi-temporal metrics.
     """
     name = aoi.name or "Selected AOI"
     area_ha = float(aoi.area_hectares or 0.0)
@@ -33,17 +34,39 @@ def generate_executive_summary(aoi: AOI, analysis: AnalysisResult) -> str:
     biomass = float(analysis.biomass_tons or 0.0)
     carbon = float(analysis.carbon_tons or 0.0)
     co2e = float(analysis.co2_equivalent_tons or 0.0)
-    health = analysis.health_category or "Unknown"
     score = float(analysis.suitability_score or 0.0)
 
+    # Calculate observation length
+    obs_days = (job.end_date - job.start_date).days if (job.end_date and job.start_date) else 30
+
+    # Retrieve explainability dict if present
+    result_layers = analysis.result_layers or {}
+    explainability = result_layers.get("explainability", {})
+
+    cur_cond = explainability.get("current_condition", {})
+    cur_class = cur_cond.get("classification", "Moderate" if cover_pct > 30 else "Sparse")
+
+    health_info = explainability.get("forest_health", {})
+    health_available = health_info.get("available", False)
+
+    if health_available:
+        health_str = f"Forest health condition is classified as <b>{health_info.get('classification', 'Healthy')}</b> based on a {obs_days}-day multi-temporal trend."
+    else:
+        health_str = (
+            f"Because the observation window is <b>{obs_days} days</b>, a multi-temporal forest health trend is "
+            f"<b>Unavailable</b> (minimum 180 days / 6 months required to scientifically assess degradation vs. seasonal variance)."
+        )
+
     summary = (
-        f"The Area of Interest '<b>{name}</b>' covering {area_ha:,.2f} hectares was evaluated using multi-temporal "
+        f"The Area of Interest '<b>{name}</b>' covering {area_ha:,.2f} hectares was evaluated using "
         f"Sentinel-1 SAR C-Band radar and Sentinel-2 optical imagery. The parcel exhibits a forest canopy "
         f"coverage of {cover_pct:.1f}%, supporting an estimated {tree_count:,} trees and a total dry biomass "
-        f"stock of {biomass:,.1f} tonnes. Under IPCC Tier 1 standards, this biomass sequesters approximately "
-        f"{carbon:,.1f} tonnes of elemental carbon, representing a carbon dioxide equivalent (CO₂e) offset "
-        f"of {co2e:,.1f} tonnes. Overall forest condition is classified as {health} with a Reforestation and "
-        f"Conservation Suitability Score of {score:.1f}/100."
+        f"stock of {biomass:,.1f} tonnes ({biomass/max(0.1, area_ha):,.1f} t/ha). Under IPCC Tier 1 standards, "
+        f"this biomass sequesters approximately {carbon:,.1f} tonnes of elemental carbon, representing a "
+        f"carbon dioxide equivalent (CO₂e) offset of {co2e:,.1f} tonnes. "
+        f"The Current Vegetation Condition is rated as <b>{cur_class}</b>. "
+        f"{health_str} "
+        f"The Reforestation and Conservation Suitability Score is evaluated at <b>{score:.1f}/100</b>."
     )
     return summary
 
@@ -57,9 +80,23 @@ def render_html_report(job: Job, aoi: AOI, analysis: AnalysisResult, summary_tex
     env = Environment(loader=FileSystemLoader(templates_dir))
     template = env.get_template("report_pdf.html")
 
+    obs_days = (job.end_date - job.start_date).days if (job.end_date and job.start_date) else 30
+    result_layers = analysis.result_layers or {}
+    explainability = result_layers.get("explainability", {})
+
+    cur_cond = explainability.get("current_condition", {})
+    cur_class = cur_cond.get("classification", "Moderate" if (analysis.forest_cover_pct or 0) > 30 else "Sparse")
+    health_info = explainability.get("forest_health", {})
+    reforest_info = explainability.get("reforestation_suitability", {})
+
     report_mock_data = {
         "summary_text": summary_text,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "obs_days": obs_days,
+        "current_condition": cur_cond,
+        "current_classification": cur_class,
+        "forest_health": health_info,
+        "reforestation_suitability": reforest_info
     }
 
     rendered_html = template.render(
@@ -82,7 +119,7 @@ def render_html_report(job: Job, aoi: AOI, analysis: AnalysisResult, summary_tex
 
 def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: AnalysisResult, summary_text: str) -> None:
     """
-    Builds a PDF report using ReportLab.
+    Builds a PDF report using ReportLab with scientifically valid metric sections.
     """
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
@@ -99,7 +136,7 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
     )
 
     styles = getSampleStyleSheet()
-    
+
     # Custom styles
     title_style = ParagraphStyle(
         "ReportTitle",
@@ -109,7 +146,7 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
         leading=24,
         textColor=colors.HexColor("#1F5C3B")
     )
-    
+
     subtitle_style = ParagraphStyle(
         "ReportSubTitle",
         parent=styles["Normal"],
@@ -138,6 +175,15 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
         textColor=colors.HexColor("#1B241D")
     )
 
+    small_style = ParagraphStyle(
+        "ReportSmall",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#5B665D")
+    )
+
     elements = []
 
     # Title & Header
@@ -149,33 +195,47 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
     # Executive Summary Box
     elements.append(Paragraph("Executive Diagnostic Summary", section_style))
     elements.append(Paragraph(summary_text, body_style))
-    elements.append(Spacer(1, 16))
+    elements.append(Spacer(1, 14))
+
+    # Extract explainability data
+    obs_days = (job.end_date - job.start_date).days if (job.end_date and job.start_date) else 30
+    result_layers = analysis.result_layers or {}
+    explainability = result_layers.get("explainability", {})
+
+    cur_cond = explainability.get("current_condition", {})
+    cur_class = cur_cond.get("classification", "Moderate" if (analysis.forest_cover_pct or 0) > 30 else "Sparse")
+    health_info = explainability.get("forest_health", {})
+
+    health_text = (
+        health_info.get("classification", "Healthy")
+        if health_info.get("available", False)
+        else "Unavailable (Single Period)"
+    )
+
+    health_color = colors.HexColor("#1F5C3B") if health_text in ["Healthy", "Excellent"] else (
+        colors.HexColor("#5B665D") if "Unavailable" in health_text else colors.HexColor("#C9713C")
+    )
 
     # Key Metrics Grid Table
     elements.append(Paragraph("Primary Environmental Metrics", section_style))
-    
-    health_color = colors.HexColor("#1F5C3B") if analysis.health_category == "Healthy" else (
-        colors.HexColor("#C9713C") if analysis.health_category == "Stressed" else colors.HexColor("#B23A32")
-    )
-
     metrics_data = [
         [
             Paragraph("<b>Canopy Cover</b>", body_style),
             Paragraph(f"<b>{analysis.forest_cover_pct}%</b>", body_style),
-            Paragraph("<b>Forest Health</b>", body_style),
-            Paragraph(f"<font color='{health_color.hexval()}'><b>{analysis.health_category}</b></font>", body_style)
+            Paragraph("<b>Current Condition</b>", body_style),
+            Paragraph(f"<font color='#1F5C3B'><b>{cur_class}</b></font>", body_style)
         ],
         [
             Paragraph("<b>Estimated Trees</b>", body_style),
             Paragraph(f"{analysis.tree_count:,}", body_style),
-            Paragraph("<b>Suitability Score</b>", body_style),
-            Paragraph(f"<b>{analysis.suitability_score} / 100</b>", body_style)
+            Paragraph("<b>Forest Health</b>", body_style),
+            Paragraph(f"<font color='{health_color.hexval()}'><b>{health_text}</b></font>", body_style)
         ],
         [
             Paragraph("<b>Dry Biomass</b>", body_style),
             Paragraph(f"{analysis.biomass_tons:,.1f} tonnes", body_style),
-            Paragraph("<b>Carbon Stock</b>", body_style),
-            Paragraph(f"{analysis.carbon_tons:,.1f} t C", body_style)
+            Paragraph("<b>Suitability Score</b>", body_style),
+            Paragraph(f"<b>{analysis.suitability_score} / 100</b>", body_style)
         ],
         [
             Paragraph("<b>CO₂e Offset</b>", body_style),
@@ -185,22 +245,53 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
         ]
     ]
 
-    metrics_table = Table(metrics_data, colWidths=[110, 150, 110, 150])
+    metrics_table = Table(metrics_data, colWidths=[120, 140, 120, 140])
     metrics_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#F7F5EF")),
         ('BORDER', (0, 0), (-1, -1), 0.5, colors.HexColor("#D8D4C7")),
-        ('PADDING', (0, 0), (-1, -1), 8),
+        ('PADDING', (0, 0), (-1, -1), 7),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     elements.append(metrics_table)
-    elements.append(Spacer(1, 18))
+    elements.append(Spacer(1, 14))
+
+    # Scientific Factor Contributions & Explainability Table
+    elements.append(Paragraph("Scientific Indicator Breakdown & Factor Weights", section_style))
+
+    contributors = cur_cond.get("contributors", {})
+    ndvi_val = contributors.get("ndvi", 0.0)
+    ndmi_val = contributors.get("ndmi", 0.0)
+    biomass_ha = contributors.get("biomass_density_t_per_ha", 0.0)
+
+    reforest_info = explainability.get("reforestation_suitability", {})
+    reforest_class = reforest_info.get("classification", "Suitable")
+
+    explain_data = [
+        [Paragraph("<b>Assessment Module</b>", body_style), Paragraph("<b>Metric / Indicator</b>", body_style), Paragraph("<b>Value</b>", body_style), Paragraph("<b>Weight</b>", body_style)],
+        [Paragraph("Current Vegetation", body_style), Paragraph("Canopy Cover %", body_style), Paragraph(f"{analysis.forest_cover_pct}%", body_style), Paragraph("35%", body_style)],
+        [Paragraph("Current Vegetation", body_style), Paragraph("Optical NDVI Index", body_style), Paragraph(f"{ndvi_val:.2f}", body_style), Paragraph("30%", body_style)],
+        [Paragraph("Current Vegetation", body_style), Paragraph("Moisture NDMI Index", body_style), Paragraph(f"{ndmi_val:.2f}", body_style), Paragraph("20%", body_style)],
+        [Paragraph("Current Vegetation", body_style), Paragraph("Biomass Density", body_style), Paragraph(f"{biomass_ha:.1f} t/ha", body_style), Paragraph("15%", body_style)],
+        [Paragraph("Reforestation Suitability", body_style), Paragraph("Canopy Gap Potential", body_style), Paragraph(f"{100.0 - float(analysis.forest_cover_pct):.1f}%", body_style), Paragraph("35%", body_style)],
+        [Paragraph("Reforestation Suitability", body_style), Paragraph("Moisture & Water Capacity", body_style), Paragraph(f"{reforest_class}", body_style), Paragraph("30%", body_style)]
+    ]
+
+    explain_table = Table(explain_data, colWidths=[140, 180, 110, 90])
+    explain_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E8E6DE")),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#D8D4C7")),
+        ('PADDING', (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(explain_table)
+    elements.append(Spacer(1, 14))
 
     # Metadata Details Table
-    elements.append(Paragraph("AOI & Processing Parameters", section_style))
+    elements.append(Paragraph("AOI & Observation Metadata", section_style))
     meta_data = [
         [Paragraph("<b>Parameter</b>", body_style), Paragraph("<b>Value / Specification</b>", body_style)],
-        [Paragraph("Parcel Name", body_style), Paragraph(str(aoi.name), body_style)],
-        [Paragraph("Observation Window", body_style), Paragraph(f"{job.start_date} to {job.end_date}", body_style)],
+        [Paragraph("Parcel Name", body_style), Paragraph(f"<b>{aoi.name}</b>", body_style)],
+        [Paragraph("Observation Window", body_style), Paragraph(f"{job.start_date} to {job.end_date} ({obs_days} days)", body_style)],
+        [Paragraph("Historical Health Analysis", body_style), Paragraph(f"{'Available' if health_info.get('available') else 'Unavailable (Requires >= 180 days)'}", body_style)],
         [Paragraph("Satellite Sensors", body_style), Paragraph("Sentinel-1 SAR C-Band + Sentinel-2 Optical", body_style)],
         [Paragraph("Raster Resolution", body_style), Paragraph("10.0m / pixel (10-Band Composite)", body_style)],
         [Paragraph("Report Generated", body_style), Paragraph(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"), body_style)]
@@ -210,14 +301,14 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E8E6DE")),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#D8D4C7")),
-        ('PADDING', (0, 0), (-1, -1), 6),
+        ('PADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(meta_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 16))
 
     # Footer note
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D8D4C7"), spaceAfter=8))
-    elements.append(Paragraph("<font size=8 color='#5B665D'>Generated automatically by Forest Intelligence System (FIS) v1.0.0 — IPCC Tier 1 Standard Compliance</font>", body_style))
+    elements.append(Paragraph("<font size=8 color='#5B665D'>Generated automatically by Forest Intelligence System (FIS) v1.0.0 — Remote Sensing & IPCC Tier 1 Scientific Standards</font>", small_style))
 
     doc.build(elements)
     logger.info("Saved ReportLab PDF report to %s", pdf_path)
@@ -242,7 +333,7 @@ def generate_full_report(job_id: int, db: Session) -> Tuple[str, str, str]:
         raise ValueError(f"AnalysisResult for Job #{job_id} not found.")
 
     # 1. Executive Summary
-    summary_text = generate_executive_summary(db_aoi, analysis)
+    summary_text = generate_executive_summary(db_aoi, analysis, db_job)
 
     # 2. HTML Report
     html_path = render_html_report(db_job, db_aoi, analysis, summary_text)
