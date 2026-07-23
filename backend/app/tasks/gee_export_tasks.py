@@ -24,43 +24,60 @@ def download_gee_image_locally(image: ee.Image, aoi_geom: ee.Geometry, job_id: i
     """
     Download GeoTIFF image directly from GEE via HTTP stream download URL.
     Saves to local_storage_path without requiring Google Cloud Storage billing.
+    Uses adaptive scale fallback (10m -> 20m -> 30m -> 60m) to stay under GEE's 50MB direct download payload limit.
     """
     output_dir = os.path.join(settings.LOCAL_STORAGE_PATH, "geotiffs")
     os.makedirs(output_dir, exist_ok=True)
     target_tif_path = os.path.join(output_dir, f"job_{job_id}.tif")
 
-    logger.info("Generating GEE direct download URL for Job ID %d...", job_id)
-    download_url = image.getDownloadURL({
-        "name": f"job_{job_id}",
-        "scale": 10,  # 10m spatial resolution
-        "crs": "EPSG:4326",
-        "region": aoi_geom,
-        "format": "GEO_TIFF",
-        "filePerBand": False
-    })
+    scales_to_try = [10, 20, 30, 60]
+    last_error = None
 
-    logger.info("Downloading satellite composite GeoTIFF stream for Job ID %d...", job_id)
-    resp = requests.get(download_url, timeout=120)
-    resp.raise_for_status()
+    for scale in scales_to_try:
+        try:
+            logger.info("Attempting GEE direct download for Job ID %d at %dm resolution...", job_id, scale)
+            download_url = image.getDownloadURL({
+                "name": f"job_{job_id}",
+                "scale": scale,
+                "crs": "EPSG:4326",
+                "region": aoi_geom,
+                "format": "GEO_TIFF",
+                "filePerBand": False
+            })
 
-    # Check if GEE returned a zip file or direct tif bytes
-    content = resp.content
-    if content.startswith(b"PK\x03\x04"):
-        # Extract the .tif file from the downloaded zip buffer
-        with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
-            tif_files = [f for f in zip_ref.namelist() if f.endswith(".tif")]
-            if not tif_files:
-                raise RuntimeError("GEE Zip archive did not contain any .tif files.")
-            extracted_bytes = zip_ref.read(tif_files[0])
-            with open(target_tif_path, "wb") as f:
-                f.write(extracted_bytes)
-    else:
-        with open(target_tif_path, "wb") as f:
-            f.write(content)
+            logger.info("Downloading satellite composite GeoTIFF stream for Job ID %d (scale=%dm)...", job_id, scale)
+            resp = requests.get(download_url, timeout=120)
 
-    file_size = os.path.getsize(target_tif_path)
-    logger.info("Successfully downloaded GeoTIFF to %s (%.2f MB)", target_tif_path, file_size / (1024 * 1024))
-    return target_tif_path
+            if not resp.ok:
+                error_text = resp.text
+                if "must be less than or equal to 50331648 bytes" in error_text or resp.status_code == 400:
+                    logger.warning("GEE payload limit (50MB) exceeded for Job #%d at %dm scale. Retrying with coarser scale...", job_id, scale)
+                    last_error = f"GEE payload limit (50MB) exceeded at {scale}m scale."
+                    continue
+                resp.raise_for_status()
+
+            content = resp.content
+            if content.startswith(b"PK\x03\x04"):
+                with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
+                    tif_files = [f for f in zip_ref.namelist() if f.endswith(".tif")]
+                    if not tif_files:
+                        raise RuntimeError("GEE Zip archive did not contain any .tif files.")
+                    extracted_bytes = zip_ref.read(tif_files[0])
+                    with open(target_tif_path, "wb") as f:
+                        f.write(extracted_bytes)
+            else:
+                with open(target_tif_path, "wb") as f:
+                    f.write(content)
+
+            file_size = os.path.getsize(target_tif_path)
+            logger.info("Successfully downloaded GeoTIFF (%dm resolution) to %s (%.2f MB)", scale, target_tif_path, file_size / (1024 * 1024))
+            return target_tif_path
+
+        except Exception as exc:
+            last_error = str(exc)
+            logger.warning("Download failed at %dm scale: %s. Trying next scale...", scale, exc)
+
+    raise RuntimeError(f"GEE Direct Download failed for Job #{job_id}. {last_error}")
 
 
 def export_gee_image_to_gcs(image: ee.Image, aoi_geom: ee.Geometry, job_id: int) -> str:
@@ -166,7 +183,16 @@ def run_gee_export_task(job_id: int):
 
     except Exception as exc:
         logger.exception("GEE Export Task failed for Job ID %d:", job_id)
-        update_job_status(db, job_id, "FAILED", error_message=str(exc))
+        err_msg = str(exc)
+        if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
+            try:
+                err_json = exc.response.json()
+                if "error" in err_json and "message" in err_json["error"]:
+                    err_msg = err_json["error"]["message"]
+            except Exception:
+                err_msg = f"{exc} ({exc.response.text[:150]})"
+
+        update_job_status(db, job_id, "FAILED", error_message=err_msg)
         raise exc
     finally:
         db.close()
