@@ -37,7 +37,7 @@ def generate_executive_summary(aoi: AOI, analysis: AnalysisResult) -> str:
     score = float(analysis.suitability_score or 0.0)
 
     summary = (
-        f"The Area of Interest '{name}' covering {area_ha:,.2f} hectares was evaluated using multi-temporal "
+        f"The Area of Interest '<b>{name}</b>' covering {area_ha:,.2f} hectares was evaluated using multi-temporal "
         f"Sentinel-1 SAR C-Band radar and Sentinel-2 optical imagery. The parcel exhibits a forest canopy "
         f"coverage of {cover_pct:.1f}%, supporting an estimated {tree_count:,} trees and a total dry biomass "
         f"stock of {biomass:,.1f} tonnes. Under IPCC Tier 1 standards, this biomass sequesters approximately "
@@ -142,7 +142,7 @@ def compile_pdf_with_reportlab(pdf_path: str, job: Job, aoi: AOI, analysis: Anal
 
     # Title & Header
     elements.append(Paragraph("Forest Intelligence System (FIS)", title_style))
-    elements.append(Paragraph(f"Executive Analysis Report — Job #{job.id}", subtitle_style))
+    elements.append(Paragraph(f"Executive Analysis Report — Job #{job.id} — <b>{aoi.name}</b>", subtitle_style))
     elements.append(Spacer(1, 12))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1F5C3B"), spaceAfter=14))
 
